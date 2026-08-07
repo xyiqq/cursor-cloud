@@ -1,3 +1,4 @@
 {
-  "install": "echo 'environment ready'"
+  "name": "cursor-cloud",
+  "install": "echo 'No project dependencies to install (empty Cloud Agents workspace). Base image provides git, node, python3, go, rust and java.'"
 }
