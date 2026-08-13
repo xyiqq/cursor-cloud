@@ -4,13 +4,24 @@
 
 上游：[deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness)（MIT）· npm：[`@deepseek-ai/dsh`](https://www.npmjs.com/package/@deepseek-ai/dsh)
 
+## 下载（已发布）
+
+发布页：https://github.com/xyiqq/cursor-cloud/releases/tag/v0.1.0
+
+| 平台 | 文件 | 链接 |
+|---|---|---|
+| **Windows x64**（推荐） | Portable，双击即用 | [DeepSeek-Harness-0.1.0-portable.exe](https://github.com/xyiqq/cursor-cloud/releases/download/v0.1.0/DeepSeek-Harness-0.1.0-portable.exe) |
+| Linux x64 | AppImage | [DeepSeek-Harness-0.1.0.AppImage](https://github.com/xyiqq/cursor-cloud/releases/download/v0.1.0/DeepSeek-Harness-0.1.0.AppImage) |
+
+Windows 若出现 SmartScreen「未知发布者」，选「更多信息 → 仍要运行」。未做代码签名属预期。
+
 ## 功能
 
 - 双击启动，主进程拉起内置 `dsh web`，窗口加载 `http://127.0.0.1:<port>`
 - 首次无 API Key 时提示设置入口
 - 单实例；关闭时清理 dsh 子进程
 - OTA：`electron-updater` + GitHub Releases（打包后生效）
-- 发行物：NSIS 安装包 + portable
+- 发行物：portable（当前 Release）+ NSIS（需 Windows 本机构建）
 
 ## 系统要求
 

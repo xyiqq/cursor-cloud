@@ -56,5 +56,5 @@ linux:
 
 publish:
   provider: github
-  owner: dazhazhang
-  repo: deepseek-harness-desktop
+  owner: xyiqq
+  repo: cursor-cloud

@@ -17,15 +17,13 @@ function broadcast(channel, payload) {
 }
 
 function configurePublisherFromEnv() {
-  const owner = process.env.GH_PUBLISH_OWNER || process.env.DSH_DESKTOP_GH_OWNER;
-  const repo = process.env.GH_PUBLISH_REPO || process.env.DSH_DESKTOP_GH_REPO;
-  if (owner && repo) {
-    autoUpdater.setFeedURL({
-      provider: 'github',
-      owner,
-      repo,
-    });
-  }
+  const owner = process.env.GH_PUBLISH_OWNER || process.env.DSH_DESKTOP_GH_OWNER || 'xyiqq';
+  const repo = process.env.GH_PUBLISH_REPO || process.env.DSH_DESKTOP_GH_REPO || 'cursor-cloud';
+  autoUpdater.setFeedURL({
+    provider: 'github',
+    owner,
+    repo,
+  });
 }
 
 /**

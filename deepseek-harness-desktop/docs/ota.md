@@ -20,8 +20,8 @@ IPC：`update:check`、`update:install`；状态事件 `update:status`。
 ```yaml
 publish:
   provider: github
-  owner: dazhazhang
-  repo: deepseek-harness-desktop
+  owner: xyiqq
+  repo: cursor-cloud
 ```
 
 运行时可用环境变量覆盖 feed（见 `configurePublisherFromEnv`）：
