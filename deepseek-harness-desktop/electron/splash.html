@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'"
+    />
+    <title>DeepSeek Harness</title>
+    <style>
+      :root {
+        --bg0: #071018;
+        --bg1: #0f1c2e;
+        --accent: #3ecf8e;
+        --text: #e8f1ff;
+        --muted: #8aa0b8;
+        --danger: #ff7b72;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        color: var(--text);
+        background: radial-gradient(120% 140% at 10% 0%, #14304a 0%, var(--bg0) 55%, #050a10 100%);
+        overflow: hidden;
+        user-select: none;
+        -webkit-app-region: drag;
+      }
+      .wrap {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 36px 40px;
+        gap: 14px;
+      }
+      .brand {
+        font-size: 22px;
+        font-weight: 650;
+        letter-spacing: 0.02em;
+      }
+      .brand span {
+        color: var(--accent);
+      }
+      .msg {
+        font-size: 14px;
+        color: var(--muted);
+        line-height: 1.5;
+        min-height: 3em;
+        white-space: pre-wrap;
+        -webkit-app-region: no-drag;
+      }
+      .msg.error {
+        color: var(--danger);
+      }
+      .bar {
+        height: 3px;
+        width: 100%;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        overflow: hidden;
+      }
+      .bar > i {
+        display: block;
+        height: 100%;
+        width: 40%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, transparent, var(--accent), transparent);
+        animation: slide 1.2s ease-in-out infinite;
+      }
+      .bar.stopped > i {
+        animation: none;
+        width: 100%;
+        background: var(--danger);
+      }
+      @keyframes slide {
+        0% {
+          transform: translateX(-120%);
+        }
+        100% {
+          transform: translateX(320%);
+        }
+      }
+      .hint {
+        font-size: 12px;
+        color: rgba(138, 160, 184, 0.85);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="brand">DeepSeek <span>Harness</span></div>
+      <div id="msg" class="msg">正在启动 DeepSeek Harness…</div>
+      <div id="bar" class="bar"><i></i></div>
+      <div class="hint">仅监听 127.0.0.1 · 打开即用桌面客户端</div>
+    </div>
+    <script>
+      const msg = document.getElementById('msg');
+      const bar = document.getElementById('bar');
+      if (window.desktopBridge && window.desktopBridge.onSplashStatus) {
+        window.desktopBridge.onSplashStatus((payload) => {
+          if (!payload) return;
+          msg.textContent = payload.message || '';
+          if (payload.phase === 'error') {
+            msg.classList.add('error');
+            bar.classList.add('stopped');
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

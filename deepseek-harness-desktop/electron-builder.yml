@@ -1,0 +1,60 @@
+appId: com.deepseek.harness.desktop
+productName: DeepSeek Harness
+copyright: Copyright © DeepSeek Harness Desktop Contributors
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - electron/**/*
+  - package.json
+
+# electron-builder 默认会排除名为 node_modules 的目录；
+# 必须把 harness/node_modules 单独声明为 from，才能打进 extraResources。
+extraResources:
+  - from: resources/harness/package.json
+    to: harness/package.json
+  - from: resources/harness/RUNTIME_VERSION.json
+    to: harness/RUNTIME_VERSION.json
+  - from: resources/harness/README.md
+    to: harness/README.md
+  - from: resources/harness/node_modules
+    to: harness/node_modules
+    filter:
+      - "**/*"
+      - "!**/.cache/**"
+      - "!**/*.md"
+
+asar: true
+npmRebuild: false
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: DeepSeek Harness
+
+portable:
+  artifactName: ${productName}-${version}-portable.${ext}
+
+linux:
+  target:
+    - AppImage
+  category: Development
+
+publish:
+  provider: github
+  owner: dazhazhang
+  repo: deepseek-harness-desktop

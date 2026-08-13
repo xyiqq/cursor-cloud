@@ -1,0 +1,9 @@
+{
+  "name": "deepseek-harness-embedded-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Embedded production dependency tree for DeepSeek Harness desktop",
+  "dependencies": {
+    "@deepseek-ai/dsh": "0.1.0-rc.3"
+  }
+}

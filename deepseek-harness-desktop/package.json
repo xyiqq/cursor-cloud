@@ -1,0 +1,29 @@
+{
+  "name": "deepseek-harness-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DeepSeek Harness Windows desktop client (Electron + embedded dsh web)",
+  "main": "electron/main.js",
+  "author": "DeepSeek Harness Desktop Contributors",
+  "license": "MIT",
+  "scripts": {
+    "sync:runtime": "node scripts/sync-harness-runtime.mjs",
+    "verify:runtime": "node scripts/verify-runtime.mjs",
+    "prestart": "node scripts/ensure-runtime.mjs",
+    "start": "cross-env ELECTRON_DEV=1 electron .",
+    "dist": "npm run sync:runtime && npm run verify:runtime && electron-builder --win",
+    "dist:dir": "electron-builder --win --dir",
+    "dist:linux": "npm run sync:runtime && npm run verify:runtime && electron-builder --linux"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "dependencies": {
+    "electron-updater": "^6.6.2"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "electron": "^41.10.5",
+    "electron-builder": "^26.0.12"
+  }
+}

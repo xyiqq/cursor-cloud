@@ -1,4 +1,7 @@
-# cursor
+# cursor-cloud
 
 Cloud Agents workspace for Cursor.
-touched 2026-08-07T22:12:46.8783593+08:00
+
+## Projects
+
+- [`deepseek-harness-desktop/`](./deepseek-harness-desktop/) — DeepSeek Harness Windows 桌面客户端（Electron + 内嵌 `dsh web` + OTA）
