@@ -1,0 +1,2 @@
+Vendored from https://github.com/hisence999/DSH-vison (MIT).
+Do not edit lightly; prefer bumping from upstream releases.

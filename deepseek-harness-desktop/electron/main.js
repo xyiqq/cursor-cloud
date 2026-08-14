@@ -414,9 +414,15 @@ async function bootstrap() {
     return;
   }
 
-  sendSplash({ phase: 'profile', message: '正在准备 desktop profile…' });
+  sendSplash({ phase: 'profile', message: '正在准备 desktop profile（含图片理解插件）…' });
   try {
-    await ensureDesktopProfile({ dshHome });
+    const profile = await ensureDesktopProfile({ dshHome });
+    console.log(
+      '[main] profile ready',
+      profile.profileDir,
+      'imageVision=',
+      profile.imageVision?.sourceDir,
+    );
   } catch (err) {
     const message = `准备 desktop profile 失败：${err?.message || err}`;
     sendSplash({ phase: 'error', message });

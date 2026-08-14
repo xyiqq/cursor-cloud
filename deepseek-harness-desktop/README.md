@@ -7,16 +7,17 @@
 - `ELECTRON_RUN_AS_NODE=1` + Electron `process.execPath` 拉起官方 CLI
 - `~/.dsh/profiles/desktop` 官方 bundle profile
 - Windows 原生模块强制打包 + 目录选择器 PowerShell 补丁
+- **内置图片理解插件**（[DSH-vison](https://github.com/hisence999/DSH-vison)）：纯文本模型也可发图，自动调用多模态模型生成描述；设置页「图片理解」可配置
 
 上游：[deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) · npm：[`@deepseek-ai/dsh`](https://www.npmjs.com/package/@deepseek-ai/dsh)
 
-## 下载（v0.2.0）
+## 下载（v0.2.1）
 
-发布页：https://github.com/xyiqq/cursor-cloud/releases/tag/v0.2.0
+发布页：https://github.com/xyiqq/cursor-cloud/releases/tag/v0.2.1
 
 **Windows ZIP（推荐）：**
 
-https://github.com/xyiqq/cursor-cloud/releases/download/v0.2.0/DeepSeek-Harness-0.2.0-win-x64.zip
+https://github.com/xyiqq/cursor-cloud/releases/download/v0.2.1/DeepSeek-Harness-0.2.1-win-x64.zip
 
 1. 解压到短路径，例如 `C:\dsh-desktop\`
 2. 运行 `DeepSeek Harness.exe`
@@ -36,6 +37,7 @@ https://github.com/xyiqq/cursor-cloud/releases/download/v0.2.0/DeepSeek-Harness-
 - 单实例；关闭时清理 dsh 子进程
 - OTA：`electron-updater` + GitHub Releases
 - 目录选择：PowerShell `FolderBrowserDialog`（避免 koffi COM worker 断开）
+- 图片理解：内置 `dsh-image-vision`（设置 → 图片理解；需已配置至少一个支持图片的模型）
 
 ## 系统要求
 

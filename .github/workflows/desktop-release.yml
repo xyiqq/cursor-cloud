@@ -26,6 +26,7 @@ jobs:
       - run: npm ci
       - run: npm run sync:natives
       - run: npm run patch:picker
+      - run: npm run patch:apiproxy
       - run: npm run verify:runtime
       - run: npx electron-builder --win zip portable --x64
         env:

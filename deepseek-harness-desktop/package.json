@@ -1,20 +1,21 @@
 {
   "name": "deepseek-harness-desktop",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "DeepSeek Harness Windows desktop client (Electron + official dsh)",
   "main": "electron/main.js",
   "author": "DeepSeek Harness Desktop Contributors",
   "license": "MIT",
   "scripts": {
-    "postinstall": "node scripts/ensure-win-natives.mjs && node scripts/patch-directory-picker.mjs",
+    "postinstall": "node scripts/ensure-win-natives.mjs && node scripts/patch-directory-picker.mjs && node scripts/patch-apiproxy-image-vision.mjs",
     "sync:natives": "node scripts/ensure-win-natives.mjs",
     "patch:picker": "node scripts/patch-directory-picker.mjs",
+    "patch:apiproxy": "node scripts/patch-apiproxy-image-vision.mjs",
     "verify:runtime": "node scripts/verify-runtime.mjs",
     "start": "cross-env ELECTRON_DEV=1 electron .",
-    "dist": "npm run sync:natives && npm run patch:picker && npm run verify:runtime && electron-builder --win",
+    "dist": "npm run sync:natives && npm run patch:picker && npm run patch:apiproxy && npm run verify:runtime && electron-builder --win",
     "dist:dir": "electron-builder --win --dir",
-    "dist:zip": "npm run sync:natives && npm run patch:picker && npm run verify:runtime && electron-builder --win zip --x64"
+    "dist:zip": "npm run sync:natives && npm run patch:picker && npm run patch:apiproxy && npm run verify:runtime && electron-builder --win zip --x64"
   },
   "engines": {
     "node": ">=22.19.0"

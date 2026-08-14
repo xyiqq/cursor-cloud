@@ -64,4 +64,27 @@ if (!workerSrc.includes('DSH_DESKTOP_PICKER_PATCH')) {
 }
 ok('directory-picker worker patched (PowerShell)');
 
+const visionPkg = join(root, 'plugins', 'dsh-image-vision', 'package.json');
+const visionIndex = join(root, 'plugins', 'dsh-image-vision', 'index.js');
+const visionClient = join(root, 'plugins', 'dsh-image-vision', 'client.js');
+if (!existsSync(visionPkg) || !existsSync(visionIndex) || !existsSync(visionClient)) {
+  fail('bundled plugins/dsh-image-vision incomplete');
+}
+const visionMeta = JSON.parse(readFileSync(visionPkg, 'utf8'));
+if (visionMeta.name !== 'dsh-image-vision') fail('unexpected image-vision package name');
+ok(`bundled dsh-image-vision ${visionMeta.version}`);
+
+let apiproxy;
+try {
+  apiproxy = require.resolve('@deepseek-ai/dsh-host-apiproxy/lib/index.js');
+} catch {
+  apiproxy = join(root, 'node_modules', '@deepseek-ai', 'dsh-host-apiproxy', 'lib', 'index.js');
+}
+if (!existsSync(apiproxy)) fail('dsh-host-apiproxy missing');
+const apiSrc = readFileSync(apiproxy, 'utf8');
+if (!apiSrc.includes('"dsh-image-vision"') && !apiSrc.includes("'dsh-image-vision'")) {
+  fail('apiproxy allowlist not patched (run patch:apiproxy)');
+}
+ok('apiproxy allowlist exposes dsh-image-vision');
+
 console.log('[verify] all checks passed');
