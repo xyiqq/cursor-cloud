@@ -2,53 +2,48 @@
 
 ## 目标
 
-把 `@deepseek-ai/dsh` 的 Browser UI（`dsh web`）封装成 Windows「打开即用」Electron 桌面客户端，并支持 GitHub Releases OTA。
+把 `@deepseek-ai/dsh` 封装成 Windows「打开即用」Electron 桌面客户端，并支持 GitHub Releases OTA。
 
-## 固定选型
+运行时模型对齐：https://github.com/ningbainb/deepseek-harness-desktop
+
+## 固定选型（v0.2.0+）
 
 | 项 | 选择 |
 |---|---|
-| 壳 | Electron（推荐 ≥41，内置 Node ≥24.18，满足 dsh 对 `node:zlib` zstd 的要求） |
-| 打包 | electron-builder：`nsis` + `portable` |
-| Runtime | `extraResources` → `resources/harness`（勿打进 asar） |
-| 启动 | `ELECTRON_RUN_AS_NODE=1` + `process.execPath` 跑 `lib/bin.js web` |
-| 绑定 | 仅 `127.0.0.1`；禁止 `0.0.0.0` |
+| 壳 | Electron 43.4.0 |
+| 打包 | electron-builder：`zip` + `portable`；`asar` + `asarUnpack: node_modules/**` |
+| Runtime | `@deepseek-ai/dsh` 及 boot 包作为 **app dependencies**（不进 extraResources） |
+| 启动 | `ELECTRON_RUN_AS_NODE=1` + `process.execPath --expose-internals lib/bin.js --profile desktop --port 0` |
+| Profile | `~/.dsh/profiles/desktop`（`electron/profile.js` 链接官方 bundles） |
+| 绑定 | 仅 `127.0.0.1` |
 | OTA | electron-updater → GitHub Releases |
+| Win 原生 | `scripts/ensure-win-natives.mjs`（Linux CI 用 `npm pack` 注入 koffi/sharp） |
+| 目录选择 | `scripts/patch-directory-picker.mjs` → PowerShell FolderBrowserDialog |
 
 ## 目录职责
 
-- `electron/` — 主进程、preload、splash、OTA
-- `resources/harness/` — 由 `npm run sync:runtime` 生成的完整 dsh 依赖树（勿手改后提交 node_modules）
-- `scripts/` — sync / verify
-- `docs/` — 调研、打包、OTA、任务总结
-
-## 关键路径
-
-```js
-const harnessRoot = app.isPackaged
-  ? path.join(process.resourcesPath, 'harness')
-  : path.join(__dirname, '..', 'resources', 'harness');
-const dshBin = path.join(harnessRoot, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js');
-```
+- `electron/` — 主进程、profile、preload、splash、OTA
+- `scripts/` — natives / picker patch / verify
+- `docs/` — 调研、打包、OTA
 
 ## 环境变量
 
-- `DSH_HOME` → `app.getPath('userData')/dsh-home`
-- 工作区 cwd → `app.getPath('userData')/workspace`
+- `DSH_HOME` → 默认 `~/.dsh`
+- 工作区 cwd → 打包后为用户 home
 - `DEEPSEEK_API_KEY` 或 `$DSH_HOME/.credentials.yaml`
-- 开发：`ELECTRON_DEV=1`；可用外部 dsh / 已 sync 的 `resources/harness`
+- 开发：`ELECTRON_DEV=1`
 
 ## 验收脚本
 
 ```bash
-npm run sync:runtime
+npm install
 npm run verify:runtime
-npm start          # 开发
-npm run dist       # Windows 安装包（需 Windows 或说明交叉限制）
+npm start
+npm run dist:zip
 ```
 
 ## 禁止
 
 - 提交 API Key / `.credentials.yaml` / `.env`
 - 修改 upstream deepseek-harness（除非记录 patch）
-- 往用户 home 乱装依赖
+- 回到 v0.1.x 的 `extraResources/harness` + 独立 `node.exe` 方案
