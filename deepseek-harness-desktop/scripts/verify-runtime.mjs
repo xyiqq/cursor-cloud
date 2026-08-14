@@ -73,6 +73,19 @@ function main() {
   }
   ok('dsh web --help 含 --host / --port / --trusted-host');
 
+  // Desktop ships a Windows runtime; ensure win32 natives exist even when verifying on Linux.
+  const winNatives = [
+    join(harnessDir, 'node_modules', '@koromix', 'koffi-win32-x64'),
+    join(harnessDir, 'node_modules', '@img', 'sharp-win32-x64'),
+    join(harnessDir, 'node_modules', 'node-addon-require-builtin-win32-x64-msvc'),
+  ];
+  for (const p of winNatives) {
+    if (!existsSync(p)) {
+      fail(`缺少 Windows 原生模块：${p}（请用默认 DSH_RUNTIME_TARGET=win32 重新 sync:runtime）`);
+    }
+  }
+  ok('Windows 原生模块就绪（koffi / sharp / node-addon-require-builtin）');
+
   // Sanity: refuse 0.0.0.0 still present in upstream
   const badHost = spawnSync(process.execPath, [dshBin, 'web', '--host', '0.0.0.0', '--port', '0'], {
     encoding: 'utf8',
