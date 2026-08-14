@@ -48,7 +48,7 @@ extraResources:
 
 ## 主进程定位
 
-见 `electron/main.js` 的 `resolveHarnessRoot()` / `resolveDshBin()`。
+见 `electron/main.js` 的 `resolveBundledHarnessRoot()` / `locateDshEntry()`（打包后会把 runtime 同步到 `userData/runtime/harness`，避免 Portable 落在 `%TEMP%` 被杀软隔离）。
 
 启动方式：`ELECTRON_RUN_AS_NODE=1` + Electron `process.execPath`。要求 Electron ≥41（Node 24.18+）。
 

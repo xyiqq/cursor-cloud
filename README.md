@@ -8,7 +8,10 @@ Cloud Agents workspace for Cursor.
 
 ## 下载客户端
 
-最新预发布：https://github.com/xyiqq/cursor-cloud/releases/tag/v0.1.0
+最新预发布：https://github.com/xyiqq/cursor-cloud/releases/tag/v0.1.1
 
-- Windows：[DeepSeek-Harness-0.1.0-portable.exe](https://github.com/xyiqq/cursor-cloud/releases/download/v0.1.0/DeepSeek-Harness-0.1.0-portable.exe)
-- Linux：[DeepSeek-Harness-0.1.0.AppImage](https://github.com/xyiqq/cursor-cloud/releases/download/v0.1.0/DeepSeek-Harness-0.1.0.AppImage)
+**Windows 请用 ZIP（不要用旧版 portable，易被杀软隔离）：**
+
+https://github.com/xyiqq/cursor-cloud/releases/download/v0.1.1/DeepSeek-Harness-0.1.1-win-x64.zip
+
+解压到 `C:\dsh-desktop\`，加入 Defender 排除项后运行 `DeepSeek Harness.exe`。
