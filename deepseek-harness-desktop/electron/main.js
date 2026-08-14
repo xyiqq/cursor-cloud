@@ -267,45 +267,79 @@ function killDshTree() {
   }
 }
 
+function resolveNodeBinary() {
+  const packagedCandidates = [
+    path.join(process.resourcesPath, 'node', 'node.exe'),
+    path.join(process.resourcesPath, 'node', 'node'),
+    path.join(path.dirname(process.execPath), 'resources', 'node', 'node.exe'),
+    path.join(path.dirname(process.execPath), 'resources', 'node', 'node'),
+  ];
+  const devCandidates = [
+    path.join(__dirname, '..', 'resources', 'node', 'win-x64', 'node.exe'),
+    path.join(__dirname, '..', 'resources', 'node', 'linux-x64', 'node'),
+  ];
+  const candidates = app.isPackaged ? packagedCandidates : [...devCandidates, ...packagedCandidates];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return { execPath: candidate, mode: 'bundled-node' };
+    }
+  }
+  // Fallback: Electron as Node (needs --expose-internals for dsh HMR).
+  return { execPath: process.execPath, mode: 'electron-as-node' };
+}
+
+function appendDshLog(chunk) {
+  try {
+    const logDir = path.join(app.getPath('userData'), 'logs');
+    fs.mkdirSync(logDir, { recursive: true });
+    fs.appendFileSync(path.join(logDir, 'dsh.log'), chunk);
+  } catch {
+    /* ignore */
+  }
+}
+
 function spawnDsh({ bin, port, dshHome, workspace }) {
-  const env = {
-    ...process.env,
-    ELECTRON_RUN_AS_NODE: '1',
-    DSH_HOME: dshHome,
-    // Avoid Electron-specific vars confusing child tooling
-    ELECTRON_NO_ATTACH_CONSOLE: '1',
-  };
+  const node = resolveNodeBinary();
+  const env = { ...process.env, DSH_HOME: dshHome };
   delete env.ELECTRON_DEV;
 
-  // cordis-plugin-hmr / loader.internal 需要 --expose-internals。
-  // 官方 Node 上 HMR 失败可能被吞掉；Electron RUN_AS_NODE 下会直接退出。
-  const args = [
-    '--expose-internals',
-    bin,
-    'web',
-    '--host',
-    HOST,
-    '--port',
-    String(port),
-  ];
-  console.log('[main] spawn dsh', process.execPath, args.join(' '));
+  /** @type {string[]} */
+  let args;
+  if (node.mode === 'bundled-node') {
+    // Official Node: strip Electron-only env that can confuse child tooling.
+    delete env.ELECTRON_RUN_AS_NODE;
+    delete env.ELECTRON_NO_ATTACH_CONSOLE;
+    delete env.ELECTRON_PRESERVE_SYMLINKS;
+    args = ['--expose-internals', bin, 'web', '--host', HOST, '--port', String(port)];
+  } else {
+    env.ELECTRON_RUN_AS_NODE = '1';
+    env.ELECTRON_NO_ATTACH_CONSOLE = '1';
+    args = ['--expose-internals', bin, 'web', '--host', HOST, '--port', String(port)];
+  }
+
+  console.log('[main] spawn dsh mode=', node.mode, node.execPath, args.join(' '));
   console.log('[main] DSH_HOME=', dshHome, 'cwd=', workspace);
 
-  const child = spawn(process.execPath, args, {
+  const child = spawn(node.execPath, args, {
     cwd: workspace,
     env,
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
   });
   dshProcess = child;
+  child.__dshLog = '';
+  child.__nodeMode = node.mode;
 
   const prefix = `[dsh:${child.pid}]`;
-  child.stdout?.on('data', (buf) => {
-    process.stdout.write(`${prefix} ${buf}`);
-  });
-  child.stderr?.on('data', (buf) => {
-    process.stderr.write(`${prefix} ${buf}`);
-  });
+  const onChunk = (buf) => {
+    const text = buf.toString();
+    child.__dshLog = `${child.__dshLog}${text}`.slice(-8000);
+    appendDshLog(text);
+    process.stdout.write(`${prefix} ${text}`);
+  };
+  child.stdout?.on('data', onChunk);
+  child.stderr?.on('data', onChunk);
+
   child.on('exit', (code, signal) => {
     console.log(`[main] dsh exited code=${code} signal=${signal}`);
     if (dshProcess === child) dshProcess = null;
@@ -317,6 +351,28 @@ function spawnDsh({ bin, port, dshHome, workspace }) {
     }
   });
   return child;
+}
+
+function formatDshFailure(child, code, signal) {
+  const tail = String(child?.__dshLog || '')
+    .trim()
+    .split(/\r?\n/)
+    .slice(-20)
+    .join('\n');
+  const lines = [
+    `dsh 在就绪前退出（code=${code}, signal=${signal}，mode=${child?.__nodeMode || 'unknown'}）。`,
+    '',
+  ];
+  if (tail) {
+    lines.push('--- dsh 日志（末尾）---', tail, '');
+  }
+  lines.push(
+    '可尝试：',
+    '1. 确认使用最新 ZIP：https://github.com/xyiqq/cursor-cloud/releases',
+    '2. 若杀软隔离了 node.exe / harness，在「保护历史记录」中允许',
+    `3. 查看日志：${path.join(app.getPath('userData'), 'logs', 'dsh.log')}`,
+  );
+  return lines.join('\n');
 }
 
 function createSplash() {
@@ -561,11 +617,7 @@ async function bootstrap() {
       waitForHttpOk(url, READY_TIMEOUT_MS),
       new Promise((_, reject) => {
         child.once('exit', (code, signal) => {
-          reject(
-            new Error(
-              `dsh 在就绪前退出（code=${code}, signal=${signal}）。请确认 Electron/Node 版本 ≥24.18（需 node:zlib zstd）。`,
-            ),
-          );
+          reject(new Error(formatDshFailure(child, code, signal)));
         });
       }),
     ]);

@@ -5,6 +5,10 @@ resources/harness/package-lock.json
 !resources/harness/package.json
 !resources/harness/RUNTIME_VERSION.json
 !resources/harness/.gitkeep
+resources/node/win-x64/
+resources/node/linux-x64/
+resources/node/.tmp/
+!resources/node/NODE_VERSION.json
 
 # Build output
 dist/

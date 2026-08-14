@@ -25,6 +25,9 @@ extraResources:
       - "**/*"
       - "!**/.cache/**"
       - "!**/*.md"
+  # Official Node for dsh (do not rely on ELECTRON_RUN_AS_NODE on Windows)
+  - from: resources/node/win-x64/node.exe
+    to: node/node.exe
 
 asar: true
 npmRebuild: false
