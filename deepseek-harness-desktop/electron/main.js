@@ -60,9 +60,18 @@ function ensureDirs() {
   return { dshHome, workspace };
 }
 
-function resolveHarnessRoot() {
+function resolveBundledHarnessRoot() {
   if (app.isPackaged) {
-    return path.join(process.resourcesPath, 'harness');
+    // Packaged: extraResources → resources/harness
+    // Also try next to execPath (zip / some portable layouts)
+    const candidates = [
+      path.join(process.resourcesPath, 'harness'),
+      path.join(path.dirname(process.execPath), 'resources', 'harness'),
+    ];
+    for (const root of candidates) {
+      if (fs.existsSync(resolveDshBin(root))) return root;
+    }
+    return candidates[0];
   }
   return path.join(__dirname, '..', 'resources', 'harness');
 }
@@ -78,20 +87,137 @@ function resolveDshBin(harnessRoot) {
   );
 }
 
+function readRuntimeVersion(harnessRoot) {
+  try {
+    const p = path.join(harnessRoot, 'RUNTIME_VERSION.json');
+    if (!fs.existsSync(p)) return null;
+    return JSON.parse(fs.readFileSync(p, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Prefer bundled harness; in ELECTRON_DEV allow PATH/`npx` fallback via DSH_BIN.
+ * Portable NSIS extracts under %TEMP%; AV often quarantines files there.
+ * Stage a stable copy under userData so subsequent launches survive Temp wipes.
+ */
+function stagedHarnessRoot() {
+  return path.join(app.getPath('userData'), 'runtime', 'harness');
+}
+
+function syncHarnessToStableLocation(bundledRoot) {
+  const stagedRoot = stagedHarnessRoot();
+  const bundledBin = resolveDshBin(bundledRoot);
+  if (!fs.existsSync(bundledBin)) {
+    return null;
+  }
+
+  const stagedBin = resolveDshBin(stagedRoot);
+  const bundledMeta = readRuntimeVersion(bundledRoot);
+  const stagedMeta = readRuntimeVersion(stagedRoot);
+  const sameVersion =
+    bundledMeta &&
+    stagedMeta &&
+    bundledMeta.dshVersionResolved === stagedMeta.dshVersionResolved &&
+    bundledMeta.syncedAt === stagedMeta.syncedAt;
+
+  if (fs.existsSync(stagedBin) && sameVersion) {
+    return { bin: stagedBin, harnessRoot: stagedRoot, source: 'staged-cache' };
+  }
+
+  sendSplash({
+    phase: 'starting',
+    message: '正在准备本地 Runtime（避开临时目录被杀软隔离）…',
+  });
+
+  fs.mkdirSync(path.dirname(stagedRoot), { recursive: true });
+  fs.rmSync(stagedRoot, { recursive: true, force: true });
+  fs.cpSync(bundledRoot, stagedRoot, { recursive: true });
+
+  if (!fs.existsSync(resolveDshBin(stagedRoot))) {
+    return { bin: bundledBin, harnessRoot: bundledRoot, source: 'bundled-fallback' };
+  }
+  return { bin: resolveDshBin(stagedRoot), harnessRoot: stagedRoot, source: 'staged-fresh' };
+}
+
+function missingRuntimeMessage(triedRoots) {
+  if (!app.isPackaged) {
+    return [
+      '未找到内置 Harness runtime。',
+      `期望路径：${resolveDshBin(triedRoots[0] || resolveBundledHarnessRoot())}`,
+      '',
+      '开发态请先运行：npm run sync:runtime',
+      '或设置 DSH_BIN 指向已安装的 dsh/lib/bin.js',
+    ].join('\n');
+  }
+  return [
+    '未找到内置 Harness runtime。',
+    '',
+    '常见原因：杀毒软件（Windows Defender 等）隔离了安装包或解压后的文件。',
+    '',
+    '请按下列步骤处理：',
+    '1. 到「Windows 安全中心 → 病毒和威胁防护 → 保护历史记录」恢复被隔离项',
+    '2. 推荐下载 ZIP 版，解压到短路径（如 C:\\dsh-desktop\\）再运行',
+    '3. 把解压目录加入 Defender「排除项」后再启动',
+    '4. 不要只运行 Temp 里的 Portable 临时目录',
+    '',
+    `已检查：${triedRoots.map((r) => resolveDshBin(r)).join('\n         ')}`,
+    '',
+    '下载页：https://github.com/xyiqq/cursor-cloud/releases',
+  ].join('\n');
+}
+
+/**
+ * Prefer bundled harness; stage away from %TEMP% when packaged.
+ * ELECTRON_DEV may use DSH_BIN override.
  */
 function locateDshEntry() {
   const envBin = process.env.DSH_BIN;
   if (envBin && fs.existsSync(envBin)) {
-    return { bin: envBin, harnessRoot: path.dirname(path.dirname(envBin)) };
+    return {
+      bin: envBin,
+      harnessRoot: path.dirname(path.dirname(path.dirname(envBin))),
+      source: 'env',
+      tried: [],
+    };
   }
-  const harnessRoot = resolveHarnessRoot();
-  const bin = resolveDshBin(harnessRoot);
+
+  const bundledRoot = resolveBundledHarnessRoot();
+  const stagedRoot = stagedHarnessRoot();
+  const tried = [bundledRoot, stagedRoot];
+
+  if (app.isPackaged) {
+    // Prefer existing healthy stage even if current extract was stripped by AV
+    if (fs.existsSync(resolveDshBin(stagedRoot)) && !fs.existsSync(resolveDshBin(bundledRoot))) {
+      return {
+        bin: resolveDshBin(stagedRoot),
+        harnessRoot: stagedRoot,
+        source: 'staged-orphan',
+        tried,
+      };
+    }
+    if (fs.existsSync(resolveDshBin(bundledRoot))) {
+      const synced = syncHarnessToStableLocation(bundledRoot);
+      if (synced?.bin) {
+        return { ...synced, tried };
+      }
+    }
+    if (fs.existsSync(resolveDshBin(stagedRoot))) {
+      return {
+        bin: resolveDshBin(stagedRoot),
+        harnessRoot: stagedRoot,
+        source: 'staged-reuse',
+        tried,
+      };
+    }
+    return { bin: null, harnessRoot: bundledRoot, tried };
+  }
+
+  const bin = resolveDshBin(bundledRoot);
   if (fs.existsSync(bin)) {
-    return { bin, harnessRoot };
+    return { bin, harnessRoot: bundledRoot, source: 'dev-bundled', tried };
   }
-  return { bin: null, harnessRoot };
+  return { bin: null, harnessRoot: bundledRoot, tried };
 }
 
 function getFreePort() {
@@ -436,19 +562,13 @@ async function bootstrap() {
 
   const located = locateDshEntry();
   if (!located.bin) {
-    const harnessRoot = resolveHarnessRoot();
-    const message = [
-      '未找到内置 Harness runtime。',
-      `期望路径：${resolveDshBin(harnessRoot)}`,
-      '',
-      '开发态请先运行：npm run sync:runtime',
-      '或设置 DSH_BIN 指向已安装的 dsh/lib/bin.js',
-    ].join('\n');
+    const message = missingRuntimeMessage(located.tried || [located.harnessRoot]);
     sendSplash({ phase: 'error', message });
     await dialog.showErrorBox('缺少 Runtime', message);
     app.quit();
     return;
   }
+  console.log('[main] runtime source=', located.source, 'root=', located.harnessRoot);
 
   const { dshHome, workspace } = ensureDirs();
   let port;

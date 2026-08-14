@@ -31,7 +31,8 @@ npmRebuild: false
 
 win:
   target:
-    - target: nsis
+    # ZIP 解压即用：推荐，避免 Portable 解压到 %TEMP% 被杀软隔离
+    - target: zip
       arch:
         - x64
     - target: portable
@@ -48,6 +49,8 @@ nsis:
 
 portable:
   artifactName: ${productName}-${version}-portable.${ext}
+  # 固定较短解压目录名，减轻 Temp 随机长路径问题
+  unpackDirName: dsh-desktop
 
 linux:
   target:

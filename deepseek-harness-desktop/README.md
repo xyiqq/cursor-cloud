@@ -6,14 +6,24 @@
 
 ## 下载（已发布）
 
-发布页：https://github.com/xyiqq/cursor-cloud/releases/tag/v0.1.0
+发布页：https://github.com/xyiqq/cursor-cloud/releases
 
-| 平台 | 文件 | 链接 |
+### 推荐：Windows ZIP（v0.1.1+）
+
+Portable 单文件会解压到 `%TEMP%`，容易被杀软误隔离并报「缺少 Runtime」。请改用 ZIP：
+
+1. 下载 `DeepSeek-Harness-*-win-x64.zip`
+2. 解压到短路径，例如 `C:\dsh-desktop\`
+3. （建议）Windows 安全中心 → 病毒和威胁防护 → 排除项 → 添加该文件夹
+4. 运行目录里的 `DeepSeek Harness.exe`
+
+若已被隔离：到「保护历史记录」恢复后再按上面步骤操作。
+
+| 平台 | 文件 | 说明 |
 |---|---|---|
-| **Windows x64**（推荐） | Portable，双击即用 | [DeepSeek-Harness-0.1.0-portable.exe](https://github.com/xyiqq/cursor-cloud/releases/download/v0.1.0/DeepSeek-Harness-0.1.0-portable.exe) |
-| Linux x64 | AppImage | [DeepSeek-Harness-0.1.0.AppImage](https://github.com/xyiqq/cursor-cloud/releases/download/v0.1.0/DeepSeek-Harness-0.1.0.AppImage) |
-
-Windows 若出现 SmartScreen「未知发布者」，选「更多信息 → 仍要运行」。未做代码签名属预期。
+| **Windows x64** | ZIP | **推荐**，解压即用 |
+| Windows x64 | Portable `.exe` | 易被杀软拦截，不推荐 |
+| Linux x64 | AppImage | 赋予执行权限后运行 |
 
 ## 功能
 
