@@ -15,6 +15,9 @@ const net = require('node:net');
 const { spawn } = require('node:child_process');
 const { initUpdater } = require('./updater');
 
+// Show a friendly name in the taskbar / "未响应" title instead of package.json name.
+app.setName('DeepSeek Harness');
+
 const isDev = process.env.ELECTRON_DEV === '1' || !app.isPackaged;
 const HOST = '127.0.0.1';
 const READY_TIMEOUT_MS = 90_000;
@@ -87,57 +90,16 @@ function resolveDshBin(harnessRoot) {
   );
 }
 
-function readRuntimeVersion(harnessRoot) {
-  try {
-    const p = path.join(harnessRoot, 'RUNTIME_VERSION.json');
-    if (!fs.existsSync(p)) return null;
-    return JSON.parse(fs.readFileSync(p, 'utf8'));
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Portable NSIS extracts under %TEMP%; AV often quarantines files there.
- * Stage a stable copy under userData so subsequent launches survive Temp wipes.
- */
+/** Optional leftover cache from older builds; never block UI copying hundreds of MB. */
 function stagedHarnessRoot() {
   return path.join(app.getPath('userData'), 'runtime', 'harness');
 }
 
-function syncHarnessToStableLocation(bundledRoot) {
-  const stagedRoot = stagedHarnessRoot();
-  const bundledBin = resolveDshBin(bundledRoot);
-  if (!fs.existsSync(bundledBin)) {
-    return null;
-  }
-
-  const stagedBin = resolveDshBin(stagedRoot);
-  const bundledMeta = readRuntimeVersion(bundledRoot);
-  const stagedMeta = readRuntimeVersion(stagedRoot);
-  const sameVersion =
-    bundledMeta &&
-    stagedMeta &&
-    bundledMeta.dshVersionResolved === stagedMeta.dshVersionResolved &&
-    bundledMeta.syncedAt === stagedMeta.syncedAt;
-
-  if (fs.existsSync(stagedBin) && sameVersion) {
-    return { bin: stagedBin, harnessRoot: stagedRoot, source: 'staged-cache' };
-  }
-
-  sendSplash({
-    phase: 'starting',
-    message: '正在准备本地 Runtime（避开临时目录被杀软隔离）…',
-  });
-
-  fs.mkdirSync(path.dirname(stagedRoot), { recursive: true });
-  fs.rmSync(stagedRoot, { recursive: true, force: true });
-  fs.cpSync(bundledRoot, stagedRoot, { recursive: true });
-
-  if (!fs.existsSync(resolveDshBin(stagedRoot))) {
-    return { bin: bundledBin, harnessRoot: bundledRoot, source: 'bundled-fallback' };
-  }
-  return { bin: resolveDshBin(stagedRoot), harnessRoot: stagedRoot, source: 'staged-fresh' };
+function isUnderTempDir(candidatePath) {
+  const temp = app.getPath('temp');
+  const resolved = path.resolve(candidatePath).toLowerCase();
+  const tempRoot = path.resolve(temp).toLowerCase();
+  return resolved === tempRoot || resolved.startsWith(tempRoot + path.sep);
 }
 
 function missingRuntimeMessage(triedRoots) {
@@ -153,13 +115,12 @@ function missingRuntimeMessage(triedRoots) {
   return [
     '未找到内置 Harness runtime。',
     '',
-    '常见原因：杀毒软件（Windows Defender 等）隔离了安装包或解压后的文件。',
+    '常见原因：杀毒软件隔离了解压后的文件，或使用了 Portable 临时目录。',
     '',
     '请按下列步骤处理：',
-    '1. 到「Windows 安全中心 → 病毒和威胁防护 → 保护历史记录」恢复被隔离项',
-    '2. 推荐下载 ZIP 版，解压到短路径（如 C:\\dsh-desktop\\）再运行',
-    '3. 把解压目录加入 Defender「排除项」后再启动',
-    '4. 不要只运行 Temp 里的 Portable 临时目录',
+    '1. 下载 ZIP 版，解压到短路径（如 C:\\dsh-desktop\\）再运行',
+    '2. 若被隔离：到「保护历史记录」选择允许/还原',
+    '3. 不要使用会解压到 %TEMP% 的 portable.exe',
     '',
     `已检查：${triedRoots.map((r) => resolveDshBin(r)).join('\n         ')}`,
     '',
@@ -168,8 +129,8 @@ function missingRuntimeMessage(triedRoots) {
 }
 
 /**
- * Prefer bundled harness; stage away from %TEMP% when packaged.
- * ELECTRON_DEV may use DSH_BIN override.
+ * Use bundled harness in place. Do NOT copy the ~300MB tree on the UI thread
+ * (that freezes the window as "未响应").
  */
 function locateDshEntry() {
   const envBin = process.env.DSH_BIN;
@@ -186,37 +147,31 @@ function locateDshEntry() {
   const stagedRoot = stagedHarnessRoot();
   const tried = [bundledRoot, stagedRoot];
 
-  if (app.isPackaged) {
-    // Prefer existing healthy stage even if current extract was stripped by AV
-    if (fs.existsSync(resolveDshBin(stagedRoot)) && !fs.existsSync(resolveDshBin(bundledRoot))) {
-      return {
-        bin: resolveDshBin(stagedRoot),
-        harnessRoot: stagedRoot,
-        source: 'staged-orphan',
-        tried,
-      };
-    }
-    if (fs.existsSync(resolveDshBin(bundledRoot))) {
-      const synced = syncHarnessToStableLocation(bundledRoot);
-      if (synced?.bin) {
-        return { ...synced, tried };
-      }
-    }
-    if (fs.existsSync(resolveDshBin(stagedRoot))) {
-      return {
-        bin: resolveDshBin(stagedRoot),
-        harnessRoot: stagedRoot,
-        source: 'staged-reuse',
-        tried,
-      };
-    }
-    return { bin: null, harnessRoot: bundledRoot, tried };
+  const bundledBin = resolveDshBin(bundledRoot);
+  if (fs.existsSync(bundledBin)) {
+    return {
+      bin: bundledBin,
+      harnessRoot: bundledRoot,
+      source: app.isPackaged
+        ? isUnderTempDir(bundledRoot)
+          ? 'bundled-temp'
+          : 'bundled'
+        : 'dev-bundled',
+      tried,
+    };
   }
 
-  const bin = resolveDshBin(bundledRoot);
-  if (fs.existsSync(bin)) {
-    return { bin, harnessRoot: bundledRoot, source: 'dev-bundled', tried };
+  // Reuse a previously staged tree if present (legacy); never create it synchronously here.
+  const stagedBin = resolveDshBin(stagedRoot);
+  if (fs.existsSync(stagedBin)) {
+    return {
+      bin: stagedBin,
+      harnessRoot: stagedRoot,
+      source: 'staged-reuse',
+      tried,
+    };
   }
+
   return { bin: null, harnessRoot: bundledRoot, tried };
 }
 
@@ -559,6 +514,8 @@ async function bootstrap() {
   updaterApi = initUpdater(app);
   createSplash();
   sendSplash({ phase: 'starting', message: '正在启动 DeepSeek Harness…' });
+  // Let splash paint before any heavier work (avoids blank "未响应" window).
+  await new Promise((r) => setTimeout(r, 50));
 
   const located = locateDshEntry();
   if (!located.bin) {
@@ -569,6 +526,12 @@ async function bootstrap() {
     return;
   }
   console.log('[main] runtime source=', located.source, 'root=', located.harnessRoot);
+  if (located.source === 'bundled-temp') {
+    sendSplash({
+      phase: 'starting',
+      message: '检测到临时目录运行，建议改用 ZIP 解压版…',
+    });
+  }
 
   const { dshHome, workspace } = ensureDirs();
   let port;

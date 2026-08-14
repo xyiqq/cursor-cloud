@@ -8,16 +8,15 @@
 
 发布页：https://github.com/xyiqq/cursor-cloud/releases
 
-### 推荐：Windows ZIP（v0.1.1+）
+### 推荐：Windows ZIP（v0.1.2+）
 
-Portable 单文件会解压到 `%TEMP%`，容易被杀软误隔离并报「缺少 Runtime」。请改用 ZIP：
+请使用最新 ZIP（不要用会卡死的旧版同步逻辑 / portable）：
 
-1. 下载 `DeepSeek-Harness-*-win-x64.zip`
-2. 解压到短路径，例如 `C:\dsh-desktop\`
-3. （建议）Windows 安全中心 → 病毒和威胁防护 → 排除项 → 添加该文件夹
-4. 运行目录里的 `DeepSeek Harness.exe`
+https://github.com/xyiqq/cursor-cloud/releases/download/v0.1.2/DeepSeek-Harness-0.1.2-win-x64.zip
 
-若已被隔离：到「保护历史记录」恢复后再按上面步骤操作。
+1. 解压到短路径，例如 `C:\dsh-desktop\`
+2. 运行 `DeepSeek Harness.exe`
+3. 若被杀软隔离：到「保护历史记录」选择允许/还原（可不加排除项）
 
 | 平台 | 文件 | 说明 |
 |---|---|---|
