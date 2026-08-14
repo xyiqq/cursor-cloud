@@ -6,35 +6,23 @@ directories:
   output: dist
   buildResources: build
 
+# Mirror ningbainb/deepseek-harness-desktop: keep native modules on disk.
+asar: true
+asarUnpack:
+  - node_modules/**
+
 files:
   - electron/**/*
   - package.json
+  - node_modules/**/*
+  - "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}"
+  - "!**/*.{md,map}"
+  - "!**/test/**"
 
-# electron-builder 默认会排除名为 node_modules 的目录；
-# 必须把 harness/node_modules 单独声明为 from，才能打进 extraResources。
-extraResources:
-  - from: resources/harness/package.json
-    to: harness/package.json
-  - from: resources/harness/RUNTIME_VERSION.json
-    to: harness/RUNTIME_VERSION.json
-  - from: resources/harness/README.md
-    to: harness/README.md
-  - from: resources/harness/node_modules
-    to: harness/node_modules
-    filter:
-      - "**/*"
-      - "!**/.cache/**"
-      - "!**/*.md"
-  # Official Node for dsh (do not rely on ELECTRON_RUN_AS_NODE on Windows)
-  - from: resources/node/win-x64/node.exe
-    to: node/node.exe
-
-asar: true
 npmRebuild: false
 
 win:
   target:
-    # ZIP 解压即用：推荐，避免 Portable 解压到 %TEMP% 被杀软隔离
     - target: zip
       arch:
         - x64
@@ -42,17 +30,10 @@ win:
       arch:
         - x64
   artifactName: ${productName}-${version}-${os}-${arch}.${ext}
-
-nsis:
-  oneClick: false
-  allowToChangeInstallationDirectory: true
-  createDesktopShortcut: true
-  createStartMenuShortcut: true
-  shortcutName: DeepSeek Harness
+  requestedExecutionLevel: asInvoker
 
 portable:
   artifactName: ${productName}-${version}-portable.${ext}
-  # 固定较短解压目录名，减轻 Temp 随机长路径问题
   unpackDirName: dsh-desktop
 
 linux:
