@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(join(root, 'package.json'));
 
-const NAMESPACES = ['dsh-image-vision', 'dsh-homeassistant'];
+const NAMESPACES = ['dsh-image-vision', 'dsh-homeassistant', 'dsh-showroom'];
 const ANCHOR = 'web-search-deepseek';
 
 function resolveApiProxyIndex() {
@@ -34,7 +34,7 @@ function ensureNamespace(src, marker) {
   if (next === src) {
     // Append after last quoted entry before closing ];
     next = src.replace(
-      /("web-search-deepseek"|"dsh-image-vision"|"dsh-homeassistant")(\s*\n\s*\];)/,
+      /("web-search-deepseek"|"dsh-image-vision"|"dsh-homeassistant"|"dsh-showroom")(\s*\n\s*\];)/,
       (match, last, close) => {
         if (src.includes(`"${marker}"`)) return match;
         return `${last},\n\t// ${marker}: bundled desktop plugin settings\n\t"${marker}"${close}`;

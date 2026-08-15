@@ -1,0 +1,155 @@
+:root {
+  --bg: #0b1020;
+  --panel: rgba(18, 26, 48, 0.88);
+  --text: #e8eefc;
+  --muted: #9aa8c7;
+  --accent: #3dd6c6;
+  --warn: #f0b429;
+  --off: #3a455f;
+  --on: #3dd6c6;
+  --focus: #ff6b4a;
+  --font: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: radial-gradient(1200px 600px at 20% -10%, #1a2a55 0%, var(--bg) 55%);
+  color: var(--text);
+  font-family: var(--font);
+}
+a { color: var(--accent); }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  background: var(--panel);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.topbar h1 {
+  margin: 0;
+  font-size: 1.1rem;
+  letter-spacing: 0.04em;
+}
+.meta { color: var(--muted); font-size: 0.85rem; }
+.nav a { margin-left: 12px; text-decoration: none; opacity: 0.85; }
+.nav a:hover { opacity: 1; }
+
+.stage {
+  position: relative;
+  margin: 20px;
+  min-height: calc(100vh - 220px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  background:
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px),
+    rgba(8, 12, 24, 0.55);
+  background-size: 48px 48px, 48px 48px, auto;
+}
+
+.node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  min-width: 96px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 2px solid var(--off);
+  background: rgba(12, 18, 34, 0.9);
+  text-align: center;
+  transition: box-shadow 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
+}
+.node .label { font-weight: 600; font-size: 0.95rem; }
+.node .state { margin-top: 4px; font-size: 0.75rem; color: var(--muted); }
+.node.on { border-color: var(--on); box-shadow: 0 0 18px rgba(61, 214, 198, 0.35); }
+.node.focus {
+  border-color: var(--focus);
+  box-shadow: 0 0 28px rgba(255, 107, 74, 0.55);
+  transform: translate(-50%, -50%) scale(1.08);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 18px rgba(255, 107, 74, 0.4); }
+  50% { box-shadow: 0 0 32px rgba(255, 107, 74, 0.75); }
+}
+
+.feed {
+  margin: 16px 20px 28px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--panel);
+  max-height: 180px;
+  overflow: auto;
+  font-size: 0.85rem;
+}
+.feed .item { padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.feed .item:last-child { border-bottom: 0; }
+.tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(61,214,198,0.15);
+  color: var(--accent);
+  margin-right: 6px;
+  font-size: 0.75rem;
+}
+
+.panel-wrap { max-width: 720px; margin: 24px auto; padding: 0 16px; }
+.card {
+  background: var(--panel);
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.card h2 { margin: 0 0 10px; font-size: 1rem; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; }
+button, .btn {
+  appearance: none;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: var(--accent);
+  color: #062a28;
+  font-weight: 600;
+  cursor: pointer;
+}
+button.secondary { background: #2a3550; color: var(--text); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+input, textarea, select {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: #0f1628;
+  color: var(--text);
+  padding: 10px 12px;
+  margin-top: 6px;
+}
+.viz-list { display: flex; flex-direction: column; gap: 8px; }
+.viz-item {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #0f1628;
+  border-left: 3px solid var(--accent);
+}
+.viz-item.bad { border-left-color: var(--focus); }
+.viz-item .name { font-weight: 600; }
+.viz-item .args { color: var(--muted); font-size: 0.8rem; word-break: break-all; margin-top: 4px; }
+
+.wish-hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}
+.wish-hero h1 { font-size: clamp(1.6rem, 4vw, 2.4rem); margin-bottom: 8px; }
+.wish-hero p { color: var(--muted); max-width: 420px; }
+.wish-form { width: min(480px, 100%); margin-top: 20px; text-align: left; }
+.toast { margin-top: 12px; color: var(--accent); min-height: 1.2em; }

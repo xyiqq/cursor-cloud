@@ -71,7 +71,7 @@ if (!workerSrc.includes('DSH_DESKTOP_PICKER_PATCH')) {
 }
 ok('directory-picker worker patched (PowerShell)');
 
-for (const plugin of ['dsh-image-vision', 'dsh-homeassistant']) {
+for (const plugin of ['dsh-image-vision', 'dsh-homeassistant', 'dsh-showroom']) {
   const visionPkg = join(root, 'plugins', plugin, 'package.json');
   const visionClient = join(root, 'plugins', plugin, 'client.js');
   const visionIndexJs = join(root, 'plugins', plugin, 'index.js');
@@ -85,6 +85,16 @@ for (const plugin of ['dsh-image-vision', 'dsh-homeassistant']) {
   ok(`bundled ${plugin} ${meta.version}`);
 }
 
+if (existsSync(join(root, 'plugins', 'dsh-showroom', 'hub.mjs')) === false) {
+  fail('dsh-showroom missing hub.mjs');
+}
+for (const page of ['twin.html', 'panel.html', 'wish.html', 'viz.html']) {
+  if (!existsSync(join(root, 'plugins', 'dsh-showroom', 'web', page))) {
+    fail(`dsh-showroom missing web/${page}`);
+  }
+}
+ok('dsh-showroom hub + web pages present');
+
 let apiproxy;
 try {
   apiproxy = require.resolve('@deepseek-ai/dsh-host-apiproxy/lib/index.js');
@@ -93,12 +103,12 @@ try {
 }
 if (!existsSync(apiproxy)) fail('dsh-host-apiproxy missing');
 const apiSrc = readFileSync(apiproxy, 'utf8');
-for (const ns of ['dsh-image-vision', 'dsh-homeassistant']) {
+for (const ns of ['dsh-image-vision', 'dsh-homeassistant', 'dsh-showroom']) {
   if (!apiSrc.includes(`"${ns}"`) && !apiSrc.includes(`'${ns}'`)) {
     fail(`apiproxy allowlist missing ${ns} (run patch:apiproxy)`);
   }
 }
-ok('apiproxy allowlist exposes image-vision + homeassistant');
+ok('apiproxy allowlist exposes image-vision + homeassistant + showroom');
 
 // OTA helper unit checks (no network)
 const { cmpVersion, pickZipAsset } = require(join(root, 'electron', 'update-utils.js'));

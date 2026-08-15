@@ -324,6 +324,20 @@ function createMainWindow(url) {
   mainWindow.loadURL(url);
 }
 
+function openShowroomPage(page) {
+  let port = 18765;
+  try {
+    const marker = path.join(userDataPaths().dshHome, 'showroom-hub.json');
+    if (fs.existsSync(marker)) {
+      const info = JSON.parse(fs.readFileSync(marker, 'utf8'));
+      if (info.port) port = Number(info.port) || port;
+    }
+  } catch {
+    /* default */
+  }
+  shell.openExternal(`http://127.0.0.1:${port}/${page}`);
+}
+
 function buildMenu() {
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
@@ -345,6 +359,27 @@ function buildMenu() {
           },
           { type: 'separator' },
           { role: 'quit', label: '退出' },
+        ],
+      },
+      {
+        label: '展厅',
+        submenu: [
+          {
+            label: '打开孪生墙',
+            click: () => openShowroomPage('twin.html'),
+          },
+          {
+            label: '打开 Show Mode 控制台',
+            click: () => openShowroomPage('panel.html'),
+          },
+          {
+            label: '打开工具可视化',
+            click: () => openShowroomPage('viz.html'),
+          },
+          {
+            label: '打开观众许愿页',
+            click: () => openShowroomPage('wish.html'),
+          },
         ],
       },
       {

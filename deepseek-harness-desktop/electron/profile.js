@@ -4,6 +4,7 @@
  * Desktop profile bootstrap (ningbainb-aligned) + bundled plugins:
  * - dsh-image-vision (图片理解)
  * - dsh-homeassistant (HA REST + optional MCP bridge state)
+ * - dsh-showroom (展厅编排 / 孪生墙 Hub；不含 ASR)
  */
 
 const { createRequire } = require('node:module');
@@ -44,8 +45,20 @@ const MANAGED_PACKAGES = Object.freeze([
 
 const ROOT_CONFIG = '[]\n';
 const WORKSPACE_CONFIG = 'packages:\n  - .\n\nnodeLinker: hoisted\nautoInstallPeers: false\n';
-const PLUGIN_FILES = Object.freeze(['index.js', 'index.mjs', 'client.js', 'package.json']);
-const BUNDLED_PLUGINS = Object.freeze(['dsh-image-vision', 'dsh-homeassistant']);
+const PLUGIN_FILES = Object.freeze([
+  'index.js',
+  'index.mjs',
+  'client.js',
+  'package.json',
+  'hub.mjs',
+  'ORIGIN.txt',
+]);
+const PLUGIN_DIRS = Object.freeze(['web', 'skills']);
+const BUNDLED_PLUGINS = Object.freeze([
+  'dsh-image-vision',
+  'dsh-homeassistant',
+  'dsh-showroom',
+]);
 
 function materializeFilesystemPath(filePath) {
   return String(filePath).replace(/([\\/])app\.asar([\\/])/g, '$1app.asar.unpacked$2');
@@ -249,7 +262,23 @@ async function installBundledPlugin({ dshHome, profileDir, pluginName }) {
         changed = true;
       }
     }
+    for (const dirName of PLUGIN_DIRS) {
+      const fromDir = path.join(sourceDir, dirName);
+      if (!fs.existsSync(fromDir)) continue;
+      const toDir = path.join(dest, dirName);
+      await fsp.cp(fromDir, toDir, { recursive: true, force: true });
+      changed = true;
+    }
   }
+
+  // Mirror narration skills into DSH_HOME/skills for optional host pickup.
+  const skillsSrc = path.join(sourceDir, 'skills');
+  if (fs.existsSync(skillsSrc)) {
+    const skillsDest = path.join(dshHome, 'skills', 'showroom');
+    await fsp.mkdir(skillsDest, { recursive: true });
+    await fsp.cp(skillsSrc, skillsDest, { recursive: true, force: true });
+  }
+
   return { changed, sourceDir, targets };
 }
 
@@ -271,6 +300,10 @@ function buildCordisPatchYaml(dshHome) {
       name: dsh-homeassistant
       config:
         enabled: false
+    - id: showroom
+      name: dsh-showroom
+      config:
+        enabled: true
 `,
   ];
 

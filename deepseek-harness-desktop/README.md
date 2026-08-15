@@ -6,13 +6,14 @@
 
 - 图片理解（[DSH-vison](https://github.com/hisence999/DSH-vison)）
 - **Home Assistant**（原生 `ha_*` 工具 + 可选 MCP 桥接）
+- **展厅 Showroom**（孪生墙 / Show Mode / 拍照控灯 / 许愿；不含 ASR）
 - **ZIP OTA**：启动自动检测 GitHub Releases 新版本并下载安装
 
-## 下载（v0.3.0）
+## 下载（v0.4.0）
 
-https://github.com/xyiqq/cursor-cloud/releases/tag/v0.3.0
+https://github.com/xyiqq/cursor-cloud/releases/tag/v0.4.0
 
-**Windows ZIP：** https://github.com/xyiqq/cursor-cloud/releases/download/v0.3.0/DeepSeek-Harness-0.3.0-win-x64.zip
+**Windows ZIP：** https://github.com/xyiqq/cursor-cloud/releases/download/v0.4.0/DeepSeek-Harness-0.4.0-win-x64.zip
 
 1. 解压到短路径，例如 `C:\dsh-desktop\`
 2. 运行 `DeepSeek Harness.exe`
@@ -24,6 +25,10 @@ https://github.com/xyiqq/cursor-cloud/releases/tag/v0.3.0
 
 - 原生 REST：填 URL + Token，启用后即可用 `ha_*` 工具
 - MCP：填 ha-mcp 的 streamable-http URL，保存后**重启**生效
+
+## 展厅 Showroom
+
+见 [docs/showroom.md](docs/showroom.md)。菜单 **展厅** 可打开孪生墙 / 控制台 / 许愿页；语音 ASR 暂缓。
 
 ## OTA
 
@@ -42,7 +47,8 @@ npm run dist:zip
 ## 文档
 
 - [docs/homeassistant.md](docs/homeassistant.md) — Home Assistant 接入
-- [docs/showroom-roadmap.md](docs/showroom-roadmap.md) — **展厅能力与后续开发计划**（拍照控灯、孪生墙、语音意图等）
+- [docs/showroom.md](docs/showroom.md) — 展厅插件用法
+- [docs/showroom-roadmap.md](docs/showroom-roadmap.md) — 展厅能力规划（含 ASR 暂缓说明）
 - [docs/ota.md](docs/ota.md) — OTA
 - [AGENTS_BRIEF.md](AGENTS_BRIEF.md) — 代理协作摘要
 
