@@ -1,9 +1,9 @@
 'use strict';
 
 /**
- * Minimal desktop profile bootstrap (aligned with ningbainb/deepseek-harness-desktop).
- * Links official boot packages into ~/.dsh/profiles/desktop so `dsh --profile desktop`
- * resolves hermetically from the packaged app.asar.unpacked tree.
+ * Desktop profile bootstrap (ningbainb-aligned) + bundled plugins:
+ * - dsh-image-vision (图片理解)
+ * - dsh-homeassistant (HA REST + optional MCP bridge state)
  */
 
 const { createRequire } = require('node:module');
@@ -27,6 +27,7 @@ const MANAGED_PACKAGES = Object.freeze([
   '@deepseek-ai/dsh-code-runtime',
   '@deepseek-ai/dsh-compaction',
   '@deepseek-ai/dsh-fs',
+  '@deepseek-ai/dsh-mcp-client',
   '@deepseek-ai/dsh-output-retention',
   '@deepseek-ai/dsh-sandbox',
   '@deepseek-ai/dsh-scope',
@@ -43,19 +44,8 @@ const MANAGED_PACKAGES = Object.freeze([
 
 const ROOT_CONFIG = '[]\n';
 const WORKSPACE_CONFIG = 'packages:\n  - .\n\nnodeLinker: hoisted\nautoInstallPeers: false\n';
-
-/** Bundled from https://github.com/hisence999/DSH-vison — cordis profile patch. */
-const IMAGE_VISION_CORDIS_PATCH = `# Managed by DeepSeek Harness Desktop (bundled DSH-vison / 图片理解).
-# Upstream: https://github.com/hisence999/DSH-vison
-- insert:
-    - id: image-vision
-      name: dsh-image-vision
-      config:
-        enabled: true
-        patchAdmission: true
-`;
-
-const IMAGE_VISION_FILES = Object.freeze(['index.js', 'client.js', 'package.json']);
+const PLUGIN_FILES = Object.freeze(['index.js', 'index.mjs', 'client.js', 'package.json']);
+const BUNDLED_PLUGINS = Object.freeze(['dsh-image-vision', 'dsh-homeassistant']);
 
 function materializeFilesystemPath(filePath) {
   return String(filePath).replace(/([\\/])app\.asar([\\/])/g, '$1app.asar.unpacked$2');
@@ -172,7 +162,6 @@ async function linkManagedPackage({ packageName, profileDir, sourceDir, previous
     if (previous?.mode === 'copy' && previous.source === sourceDir && installed?.name === packageName) {
       return { changed: false, record: previous };
     }
-    // Replace stale links from older desktop builds.
     await fsp.rm(target, { recursive: true, force: true });
   }
 
@@ -203,41 +192,48 @@ function createDesktopProfileManifest(existing = {}) {
   };
 }
 
-function resolveBundledImageVisionDir() {
-  const candidates = [
-    path.join(__dirname, '..', 'plugins', 'dsh-image-vision'),
-  ];
+function resolveBundledPluginDir(pluginName) {
+  const candidates = [path.join(__dirname, '..', 'plugins', pluginName)];
   if (process.resourcesPath) {
     candidates.push(
-      path.join(process.resourcesPath, 'app.asar.unpacked', 'plugins', 'dsh-image-vision'),
-      materializeFilesystemPath(
-        path.join(process.resourcesPath, 'app.asar', 'plugins', 'dsh-image-vision'),
-      ),
-      path.join(process.resourcesPath, 'app.asar', 'plugins', 'dsh-image-vision'),
-      path.join(process.resourcesPath, 'plugins', 'dsh-image-vision'),
+      path.join(process.resourcesPath, 'app.asar.unpacked', 'plugins', pluginName),
+      materializeFilesystemPath(path.join(process.resourcesPath, 'app.asar', 'plugins', pluginName)),
+      path.join(process.resourcesPath, 'app.asar', 'plugins', pluginName),
+      path.join(process.resourcesPath, 'plugins', pluginName),
     );
   }
   for (const dir of candidates) {
-    if (fs.existsSync(path.join(dir, 'package.json')) && fs.existsSync(path.join(dir, 'index.js'))) {
-      return dir;
-    }
+    const hasPkg = fs.existsSync(path.join(dir, 'package.json'));
+    const hasEntry =
+      fs.existsSync(path.join(dir, 'index.js')) || fs.existsSync(path.join(dir, 'index.mjs'));
+    if (hasPkg && hasEntry) return dir;
   }
   return null;
 }
 
-async function installImageVisionPlugin({ dshHome, profileDir }) {
-  const sourceDir = resolveBundledImageVisionDir();
+async function installBundledPlugin({ dshHome, profileDir, pluginName }) {
+  const sourceDir = resolveBundledPluginDir(pluginName);
   if (!sourceDir) {
-    throw new Error('bundled plugins/dsh-image-vision is missing from the app package');
+    throw new Error(`bundled plugins/${pluginName} is missing from the app package`);
   }
   const targets = [
-    path.join(profileDir, 'node_modules', 'dsh-image-vision'),
-    path.join(dshHome, 'profiles', 'node_modules', 'dsh-image-vision'),
+    path.join(profileDir, 'node_modules', pluginName),
+    path.join(dshHome, 'profiles', 'node_modules', pluginName),
   ];
+  const files = PLUGIN_FILES.filter((file) => fs.existsSync(path.join(sourceDir, file)));
+  if (!files.includes('package.json') || (!files.includes('index.js') && !files.includes('index.mjs'))) {
+    throw new Error(`plugins/${pluginName} missing package.json or entry`);
+  }
   let changed = false;
   for (const dest of targets) {
     await fsp.mkdir(dest, { recursive: true });
-    for (const file of IMAGE_VISION_FILES) {
+    // Drop stale alternate entry so require/import resolve cleanly.
+    for (const stale of ['index.js', 'index.mjs']) {
+      if (!files.includes(stale)) {
+        await fsp.rm(path.join(dest, stale), { force: true });
+      }
+    }
+    for (const file of files) {
       const from = path.join(sourceDir, file);
       const to = path.join(dest, file);
       const content = await fsp.readFile(from);
@@ -257,6 +253,46 @@ async function installImageVisionPlugin({ dshHome, profileDir }) {
   return { changed, sourceDir, targets };
 }
 
+function readHaMcpState(dshHome) {
+  return readJsonSync(path.join(dshHome, 'desktop-ha-mcp.json'));
+}
+
+function buildCordisPatchYaml(dshHome) {
+  const parts = [
+    `# Managed by DeepSeek Harness Desktop — bundled plugins.
+# Do not hand-edit unless you know how cordis patches work.
+- insert:
+    - id: image-vision
+      name: dsh-image-vision
+      config:
+        enabled: true
+        patchAdmission: true
+    - id: homeassistant
+      name: dsh-homeassistant
+      config:
+        enabled: false
+`,
+  ];
+
+  const mcp = readHaMcpState(dshHome);
+  if (mcp?.enabled && mcp.url) {
+    const headers = mcp.headers && typeof mcp.headers === 'object' ? mcp.headers : {};
+    const headerLines = Object.entries(headers)
+      .map(([k, v]) => `          ${JSON.stringify(k)}: ${JSON.stringify(String(v))}`)
+      .join('\n');
+    parts.push(`    - id: mcp-homeassistant
+      name: "@deepseek-ai/dsh-mcp-client"
+      config:
+        transport: streamable-http
+        serverName: homeassistant
+        url: ${JSON.stringify(String(mcp.url))}
+        failOnStartupError: false
+${headerLines ? `        headers:\n${headerLines}\n` : ''}`);
+  }
+
+  return `${parts.join('')}`;
+}
+
 /**
  * @param {{ dshHome: string, profileName?: string }} opts
  */
@@ -273,10 +309,11 @@ async function ensureDesktopProfile({ dshHome, profileName = 'desktop' } = {}) {
   for (const [packageName, sourceDir] of packageRoots) {
     manifest.dependencies[packageName] = `link:${sourceDir.replaceAll('\\', '/')}`;
   }
-  // Local plugin path (also physically copied below for cordis require).
-  const visionDir = resolveBundledImageVisionDir();
-  if (visionDir) {
-    manifest.dependencies['dsh-image-vision'] = `link:${visionDir.replaceAll('\\', '/')}`;
+  for (const pluginName of BUNDLED_PLUGINS) {
+    const dir = resolveBundledPluginDir(pluginName);
+    if (dir) {
+      manifest.dependencies[pluginName] = `link:${dir.replaceAll('\\', '/')}`;
+    }
   }
   manifest.dependencies = Object.fromEntries(
     Object.entries(manifest.dependencies).toSorted(([a], [b]) => a.localeCompare(b)),
@@ -285,7 +322,7 @@ async function ensureDesktopProfile({ dshHome, profileName = 'desktop' } = {}) {
   let changed = false;
   changed = (await writeIfChanged(path.join(profileDir, 'cordis.yml'), ROOT_CONFIG)) || changed;
   changed =
-    (await writeIfChanged(path.join(profileDir, 'cordis.patch.yml'), IMAGE_VISION_CORDIS_PATCH)) ||
+    (await writeIfChanged(path.join(profileDir, 'cordis.patch.yml'), buildCordisPatchYaml(dshHome))) ||
     changed;
   changed = (await writeIfChanged(path.join(profileDir, 'pnpm-workspace.yaml'), WORKSPACE_CONFIG)) || changed;
   changed = (await writeIfChanged(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)) || changed;
@@ -305,10 +342,20 @@ async function ensureDesktopProfile({ dshHome, profileName = 'desktop' } = {}) {
   }
   changed = (await writeIfChanged(recordPath, `${JSON.stringify(nextRecords, null, 2)}\n`)) || changed;
 
-  const vision = await installImageVisionPlugin({ dshHome, profileDir });
-  changed = vision.changed || changed;
+  const installedPlugins = {};
+  for (const pluginName of BUNDLED_PLUGINS) {
+    const result = await installBundledPlugin({ dshHome, profileDir, pluginName });
+    installedPlugins[pluginName] = result;
+    changed = result.changed || changed;
+  }
 
-  return { changed, manifest, profileDir, imageVision: vision };
+  return {
+    changed,
+    manifest,
+    profileDir,
+    plugins: installedPlugins,
+    mcpEnabled: !!readHaMcpState(dshHome)?.enabled,
+  };
 }
 
 function resolveDshCliPath() {
@@ -320,9 +367,11 @@ function resolveDshCliPath() {
 module.exports = {
   BUILTIN_BUNDLES,
   MANAGED_PACKAGES,
-  IMAGE_VISION_CORDIS_PATCH,
+  BUNDLED_PLUGINS,
   materializeFilesystemPath,
   ensureDesktopProfile,
-  resolveBundledImageVisionDir,
+  resolveBundledPluginDir,
+  resolveBundledImageVisionDir: () => resolveBundledPluginDir('dsh-image-vision'),
   resolveDshCliPath,
+  buildCordisPatchYaml,
 };

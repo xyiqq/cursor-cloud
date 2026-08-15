@@ -1,6 +1,6 @@
 {
   "name": "deepseek-harness-desktop",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "description": "DeepSeek Harness Windows desktop client (Electron + official dsh)",
   "main": "electron/main.js",
@@ -30,6 +30,7 @@
     "@deepseek-ai/dsh-code-runtime": "0.1.0-rc.6",
     "@deepseek-ai/dsh-compaction": "0.1.0-rc.6",
     "@deepseek-ai/dsh-fs": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-mcp-client": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-output-retention": "0.1.0-rc.6",
     "@deepseek-ai/dsh-sandbox": "0.1.0-rc.6",
     "@deepseek-ai/dsh-scope": "0.1.0-rc.6",

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Verify packaged-style resolution of @deepseek-ai/dsh and Windows natives.
+ * Verify packaged-style resolution of @deepseek-ai/dsh, natives, plugins, OTA helpers.
  */
 import { createRequire } from 'node:module';
 import { existsSync, readFileSync } from 'node:fs';
@@ -40,6 +40,13 @@ const ver = spawnSync(process.execPath, [bin, '--version'], { encoding: 'utf8' }
 if (ver.status !== 0) fail(`dsh --version failed`);
 ok(`dsh --version → ${ver.stdout.trim()}`);
 
+try {
+  require.resolve('@deepseek-ai/dsh-mcp-client/package.json');
+  ok('@deepseek-ai/dsh-mcp-client present');
+} catch (err) {
+  fail(`dsh-mcp-client missing: ${err.message}`);
+}
+
 for (const rel of [
   '@koromix/koffi-win32-x64',
   '@img/sharp-win32-x64',
@@ -64,15 +71,19 @@ if (!workerSrc.includes('DSH_DESKTOP_PICKER_PATCH')) {
 }
 ok('directory-picker worker patched (PowerShell)');
 
-const visionPkg = join(root, 'plugins', 'dsh-image-vision', 'package.json');
-const visionIndex = join(root, 'plugins', 'dsh-image-vision', 'index.js');
-const visionClient = join(root, 'plugins', 'dsh-image-vision', 'client.js');
-if (!existsSync(visionPkg) || !existsSync(visionIndex) || !existsSync(visionClient)) {
-  fail('bundled plugins/dsh-image-vision incomplete');
+for (const plugin of ['dsh-image-vision', 'dsh-homeassistant']) {
+  const visionPkg = join(root, 'plugins', plugin, 'package.json');
+  const visionClient = join(root, 'plugins', plugin, 'client.js');
+  const visionIndexJs = join(root, 'plugins', plugin, 'index.js');
+  const visionIndexMjs = join(root, 'plugins', plugin, 'index.mjs');
+  const hasEntry = existsSync(visionIndexJs) || existsSync(visionIndexMjs);
+  if (!existsSync(visionPkg) || !hasEntry || !existsSync(visionClient)) {
+    fail(`bundled plugins/${plugin} incomplete`);
+  }
+  const meta = JSON.parse(readFileSync(visionPkg, 'utf8'));
+  if (meta.name !== plugin) fail(`unexpected package name for ${plugin}`);
+  ok(`bundled ${plugin} ${meta.version}`);
 }
-const visionMeta = JSON.parse(readFileSync(visionPkg, 'utf8'));
-if (visionMeta.name !== 'dsh-image-vision') fail('unexpected image-vision package name');
-ok(`bundled dsh-image-vision ${visionMeta.version}`);
 
 let apiproxy;
 try {
@@ -82,9 +93,24 @@ try {
 }
 if (!existsSync(apiproxy)) fail('dsh-host-apiproxy missing');
 const apiSrc = readFileSync(apiproxy, 'utf8');
-if (!apiSrc.includes('"dsh-image-vision"') && !apiSrc.includes("'dsh-image-vision'")) {
-  fail('apiproxy allowlist not patched (run patch:apiproxy)');
+for (const ns of ['dsh-image-vision', 'dsh-homeassistant']) {
+  if (!apiSrc.includes(`"${ns}"`) && !apiSrc.includes(`'${ns}'`)) {
+    fail(`apiproxy allowlist missing ${ns} (run patch:apiproxy)`);
+  }
 }
-ok('apiproxy allowlist exposes dsh-image-vision');
+ok('apiproxy allowlist exposes image-vision + homeassistant');
+
+// OTA helper unit checks (no network)
+const { cmpVersion, pickZipAsset } = require(join(root, 'electron', 'update-utils.js'));
+if (cmpVersion('0.2.1', '0.3.0') !== -1) fail('cmpVersion ordering');
+if (cmpVersion('0.3.0', '0.3.0') !== 0) fail('cmpVersion equal');
+const asset = pickZipAsset({
+  assets: [
+    { name: 'notes.txt' },
+    { name: 'DeepSeek-Harness-0.3.0-win-x64.zip', browser_download_url: 'https://example/x.zip' },
+  ],
+});
+if (!asset || !/0\.3\.0/.test(asset.name)) fail('pickZipAsset');
+ok('OTA helpers (cmpVersion/pickZipAsset)');
 
 console.log('[verify] all checks passed');

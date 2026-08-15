@@ -1,0 +1,3 @@
+Vendored/bundled for DeepSeek Harness Desktop.
+Native HA REST tools + MCP bridge settings (pairs with @deepseek-ai/dsh-mcp-client).
+Recommended MCP upstream: https://github.com/homeassistant-ai/ha-mcp

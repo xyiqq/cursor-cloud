@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 /**
- * Patch dsh-host-apiproxy WEB_SETTINGS_NAMESPACES so the settings UI can
- * expose the `dsh-image-vision` namespace (required by DSH-vison / 图片理解).
- * Idempotent.
+ * Patch dsh-host-apiproxy WEB_SETTINGS_NAMESPACES for bundled plugin settings.
+ * Idempotent — safe to run repeatedly.
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -12,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(join(root, 'package.json'));
 
-const MARKER = 'dsh-image-vision';
+const NAMESPACES = ['dsh-image-vision', 'dsh-homeassistant'];
 const ANCHOR = 'web-search-deepseek';
 
 function resolveApiProxyIndex() {
@@ -24,50 +23,60 @@ function resolveApiProxyIndex() {
   }
 }
 
+function ensureNamespace(src, marker) {
+  if (src.includes(`"${marker}"`) || src.includes(`'${marker}'`)) {
+    return { src, changed: false };
+  }
+  let next = src.replace(
+    new RegExp(`("${ANCHOR}"(?:\\s*,\\s*\\n\\s*//[^\\n]*\\n\\s*"[^"]+")*)(\\s*\\n\\s*\\];)`),
+    `$1,\n\t// ${marker}: bundled desktop plugin settings\n\t"${marker}"$2`,
+  );
+  if (next === src) {
+    // Append after last quoted entry before closing ];
+    next = src.replace(
+      /("web-search-deepseek"|"dsh-image-vision"|"dsh-homeassistant")(\s*\n\s*\];)/,
+      (match, last, close) => {
+        if (src.includes(`"${marker}"`)) return match;
+        return `${last},\n\t// ${marker}: bundled desktop plugin settings\n\t"${marker}"${close}`;
+      },
+    );
+  }
+  if (next === src) {
+    next = src.replace(
+      /('web-search-deepseek')(\s*,?\s*\])/,
+      `$1, '${marker}'$2`,
+    );
+  }
+  if (next === src) {
+    throw new Error(`failed to insert ${marker}`);
+  }
+  return { src: next, changed: true };
+}
+
 function patchFile(filePath) {
   if (!existsSync(filePath)) {
     console.warn(`[apiproxy] skip — missing ${filePath}`);
     return false;
   }
-  const src = readFileSync(filePath, 'utf8');
-  if (src.includes(`"${MARKER}"`) || src.includes(`'${MARKER}'`)) {
-    console.log(`[apiproxy] already patched: ${filePath}`);
-    return true;
-  }
+  let src = readFileSync(filePath, 'utf8');
   if (!src.includes(`"${ANCHOR}"`) && !src.includes(`'${ANCHOR}'`)) {
     throw new Error(`allowlist anchor "${ANCHOR}" not found in ${filePath}`);
   }
-
-  // Prefer the compiled commonjs form used at runtime (double-quoted).
-  let next = src.replace(
-    /("web-search-deepseek")(\s*\n\s*\];)/,
-    `$1,\n\t// ${MARKER}: settings section for the bundled DSH-vison plugin\n\t"${MARKER}"$2`,
-  );
-  if (next === src) {
-    next = src.replace(
-      /('web-search-deepseek')(\s*\n\s*\];)/,
-      `$1,\n    // ${MARKER}: settings section for the bundled DSH-vison plugin\n    '${MARKER}'$2`,
-    );
+  let changedAny = false;
+  for (const ns of NAMESPACES) {
+    const result = ensureNamespace(src, ns);
+    src = result.src;
+    changedAny = changedAny || result.changed;
+    if (!result.changed) console.log(`[apiproxy] already has ${ns}`);
+    else console.log(`[apiproxy] added ${ns}`);
   }
-  if (next === src) {
-    // Fallback: single-line / trailing-comma array form in types/api-proxy.js
-    next = src.replace(
-      /('web-search-deepseek')(\s*,?\s*\])/,
-      `$1, '${MARKER}'$2`,
-    );
-  }
-  if (next === src) {
-    throw new Error(`failed to patch allowlist in ${filePath}`);
-  }
-  writeFileSync(filePath, next);
-  console.log(`[apiproxy] patched: ${filePath}`);
+  if (changedAny) writeFileSync(filePath, src);
+  console.log(`[apiproxy] ok: ${filePath}`);
   return true;
 }
 
 const primary = resolveApiProxyIndex();
 patchFile(primary);
-
-// Also patch the TypeScript-emitted twin if present (some resolve paths hit it).
 const twin = join(dirname(primary), 'types', 'api-proxy.js');
 if (existsSync(twin)) {
   try {
@@ -76,5 +85,4 @@ if (existsSync(twin)) {
     console.warn(`[apiproxy] twin patch skipped: ${err.message || err}`);
   }
 }
-
-console.log('[apiproxy] image-vision allowlist ready');
+console.log('[apiproxy] settings allowlist ready:', NAMESPACES.join(', '));

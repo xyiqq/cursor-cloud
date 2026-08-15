@@ -414,14 +414,16 @@ async function bootstrap() {
     return;
   }
 
-  sendSplash({ phase: 'profile', message: '正在准备 desktop profile（含图片理解插件）…' });
+  sendSplash({ phase: 'profile', message: '正在准备 desktop profile（图片理解 / Home Assistant）…' });
   try {
     const profile = await ensureDesktopProfile({ dshHome });
     console.log(
       '[main] profile ready',
       profile.profileDir,
-      'imageVision=',
-      profile.imageVision?.sourceDir,
+      'plugins=',
+      Object.keys(profile.plugins || {}),
+      'mcp=',
+      profile.mcpEnabled,
     );
   } catch (err) {
     const message = `准备 desktop profile 失败：${err?.message || err}`;
