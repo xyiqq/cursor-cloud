@@ -5,7 +5,7 @@
  * - dsh-image-vision (图片理解)
  * - dsh-homeassistant (HA REST + optional MCP bridge state)
  * - dsh-showroom (展厅编排 / 孪生墙 Hub；不含 ASR)
- * - dsh-plugin-liang-calibrator (滑动变祖器 / 模型+思考档位)
+ * - dsh-plugin-liang-calibrator (滑动变祖器 / 先选模型，滑条只调思考强度)
  */
 
 const { createRequire } = require('node:module');

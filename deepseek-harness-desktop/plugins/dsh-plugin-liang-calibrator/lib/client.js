@@ -95,9 +95,10 @@ function clsx() {
 		};
 		/**
 		* The calibrator surface: it IS the model-select root pane, so opening the
-		* composer's model seat lands straight on the slider. A small Model row
-		* beneath it still drills into the plain list.
-		* @param props - model/effort combos, current combo index, busy flag, commit verb.
+		* composer's model seat lands straight on the slider. Combos are the
+		* reasoning-effort levels of the *currently selected* model only — the
+		* Model row beneath drills into the plain list to change models.
+		* @param props - effort combos for the current model, current combo index, busy flag, commit verb.
 		*/
 		function LiangEffortSlider({ combos, currentIndex, busy, onChoose }) {
 			ensureLiangStyles();
@@ -125,7 +126,7 @@ function clsx() {
 			(0, react.useEffect)(() => {
 				lastCommitted.current = currentIndex;
 				if (currentIndex !== -1 && currentIndex !== liangComboIndexForPos(level, combos.length)) setLevel(levelFromIndex(currentIndex));
-			}, [currentIndex]);
+			}, [currentIndex, combos.length]);
 			(0, react.useEffect)(() => {
 				const frame = Math.max(0, Math.min(LIANG_MAX_LEVEL, Math.round(level)));
 				const cache = imagesRef.current;
@@ -165,7 +166,7 @@ function clsx() {
 			const combo = comboIndex === -1 ? void 0 : combos[comboIndex];
 			const stageIndex = comboIndex === -1 ? liangStageForPos(level) : liangStageForCombo(comboIndex, combos.length);
 			const stage = LIANG_STAGES[stageIndex];
-			const comboLabel = combo === void 0 ? void 0 : combo.effortName === void 0 ? combo.modelName : `${combo.modelName} · ${combo.effortName}`;
+			const comboLabel = combo === void 0 ? void 0 : combo.effortName ?? combo.modelName;
 			const commit = (raw) => {
 				const position = Math.max(0, Math.min(LIANG_MAX_LEVEL, raw));
 				setLevel(position);
@@ -240,10 +241,10 @@ function clsx() {
 					(0, react_jsx_runtime.jsx)("div", {
 						className: "dsh-liang-markers",
 						children: LIANG_STAGES.map((name, index) => {
-							const markerCombo = combos.length === 6 ? combos[index] : void 0;
+							const markerCombo = combos.find((_, comboAt) => liangStageForCombo(comboAt, combos.length) === index);
 							return (0, react_jsx_runtime.jsx)("span", {
 								className: `dsh-liang-marker${index === stageIndex ? " is-current" : ""}`,
-								title: markerCombo === void 0 ? void 0 : markerCombo.effortName === void 0 ? markerCombo.modelName : `${markerCombo.modelName} · ${markerCombo.effortName}`,
+								title: markerCombo === void 0 ? void 0 : markerCombo.effortName ?? markerCombo.modelName,
 								children: name
 							}, index);
 						})
@@ -296,7 +297,11 @@ function clsx() {
 			const reasoning = currentChoice?.model.reasoning;
 			const effectiveEffort = state.current?.reasoningEffort ?? reasoning?.defaultEffort;
 			const effortLabel = reasoning === void 0 ? void 0 : effectiveEffort === void 0 ? t("effort.providerDefault") : reasoning.efforts.find((level) => level.id === effectiveEffort)?.name ?? effectiveEffort;
-			const combos = (0, react.useMemo)(() => state.groups.flatMap((group) => group.models.flatMap((model) => {
+			/** Effort steps for the *current* model only — slider never switches models. */
+			const combos = (0, react.useMemo)(() => {
+				if (currentChoice === void 0) return [];
+				const group = currentChoice.group;
+				const model = currentChoice.model;
 				if (model.reasoning === void 0) return [{
 					provider: group.id,
 					model: model.id,
@@ -318,8 +323,8 @@ function clsx() {
 					effort: level.effort,
 					effortName: level.name
 				}));
-			})), [state.groups, t]);
-			const currentComboIndex = state.current === null ? -1 : combos.findIndex((combo) => combo.provider === state.current.provider && combo.model === state.current.model && combo.effort === effectiveEffort);
+			}, [currentChoice, t]);
+			const currentComboIndex = state.current === null || combos.length === 0 ? -1 : combos.findIndex((combo) => combo.effort === effectiveEffort);
 			const liangLabel = currentComboIndex === -1 ? void 0 : LIANG_STAGES[liangStageForCombo(currentComboIndex, combos.length)];
 			const shownEffortLabel = liangLabel ?? effortLabel;
 			const busy = state.status === "selecting";
@@ -398,22 +403,29 @@ function clsx() {
 					});
 				}
 			};
-			const choose = (selection) => {
+			const choose = (selection, keepOpen) => {
 				if (state.current?.provider === selection.provider && state.current.model === selection.model) {
-					close(true);
+					if (keepOpen === true) setPane("root");
+					else close(true);
 					return;
 				}
 				lastActionRef.current = "select";
-				select(selection).then(settleSelection);
+				select(selection).then((accepted) => {
+					if (accepted && keepOpen === true) {
+						setPane("root");
+						return;
+					}
+					settleSelection(accepted);
+				});
 			};
 			const chooseCombo = (combo, keepOpen) => {
 				if (state.current === null) return;
 				const selection = {
-					provider: combo.provider,
-					model: combo.model,
+					provider: state.current.provider,
+					model: state.current.model,
 					...combo.effort === void 0 ? {} : { reasoningEffort: combo.effort }
 				};
-				if (state.current.provider === selection.provider && state.current.model === selection.model && effectiveEffort === (selection.reasoningEffort ?? void 0)) {
+				if (effectiveEffort === (selection.reasoningEffort ?? void 0)) {
 					if (keepOpen !== true) close(true);
 					return;
 				}
@@ -486,9 +498,12 @@ function clsx() {
 									onClick: reload,
 									children: t("retry")
 								})]
-							}), combos.length === 0 ? (0, react_jsx_runtime.jsx)("div", {
+							}), currentChoice === void 0 ? (0, react_jsx_runtime.jsx)("div", {
 								className: liang_css.empty,
 								children: t("empty.models")
+							}) : combos.length === 0 ? (0, react_jsx_runtime.jsx)("div", {
+								className: liang_css.empty,
+								children: t("empty.efforts")
 							}) : (0, react_jsx_runtime.jsx)(LiangEffortSlider, {
 								combos,
 								currentIndex: currentComboIndex,
@@ -570,7 +585,7 @@ function clsx() {
 														choose({
 															provider: group.id,
 															model: model.id
-														});
+														}, true);
 													},
 													children: [(0, react_jsx_runtime.jsxs)("span", {
 														className: liang_css.optionCopy,
