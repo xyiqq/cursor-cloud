@@ -65,7 +65,7 @@ git clone https://github.com/BruzWJ/Liang-Saint-Slider.git ~/.dsh/extra-plugins/
 
 | 项 | 说明 |
 |---|---|
-| 需要哪版客户端 | **需要带「额外插件」支持的桌面端**（本仓库当前 `electron/profile.js`）。已安装的 **v0.4.2 及更早** 还不认识 `desktop-extra-plugins.json`，只改该文件无效。 |
+| 需要哪版客户端 | **v0.4.3+** 已内置滑动变祖器；亦可用 `desktop-extra-plugins.json` 挂其它本地插件。 |
 | 官方 README | 上游写的是 `--profile web`；桌面端固定用 **`desktop`** profile，按本文即可。 |
 | 未上 npm | 该插件目前需从 GitHub clone，不能 `npm i dsh-plugin-liang-calibrator`。 |
 | 肖像素材 | 肖像版权归原作者，见上游 README。 |

@@ -73,19 +73,27 @@ if (!workerSrc.includes('DSH_DESKTOP_PICKER_PATCH')) {
 }
 ok('directory-picker worker patched (PowerShell)');
 
-for (const plugin of ['dsh-image-vision', 'dsh-homeassistant', 'dsh-showroom']) {
+for (const plugin of ['dsh-image-vision', 'dsh-homeassistant', 'dsh-showroom', 'dsh-plugin-liang-calibrator']) {
   const visionPkg = join(root, 'plugins', plugin, 'package.json');
   const visionClient = join(root, 'plugins', plugin, 'client.js');
+  const visionClientLib = join(root, 'plugins', plugin, 'lib', 'client.js');
   const visionIndexJs = join(root, 'plugins', plugin, 'index.js');
   const visionIndexMjs = join(root, 'plugins', plugin, 'index.mjs');
-  const hasEntry = existsSync(visionIndexJs) || existsSync(visionIndexMjs);
-  if (!existsSync(visionPkg) || !hasEntry || !existsSync(visionClient)) {
+  const visionIndexLib = join(root, 'plugins', plugin, 'lib', 'index.js');
+  const hasEntry = existsSync(visionIndexJs) || existsSync(visionIndexMjs) || existsSync(visionIndexLib);
+  const hasClient = existsSync(visionClient) || existsSync(visionClientLib);
+  if (!existsSync(visionPkg) || !hasEntry || !hasClient) {
     fail(`bundled plugins/${plugin} incomplete`);
   }
   const meta = JSON.parse(readFileSync(visionPkg, 'utf8'));
   if (meta.name !== plugin) fail(`unexpected package name for ${plugin}`);
   ok(`bundled ${plugin} ${meta.version}`);
 }
+
+if (!existsSync(join(root, 'plugins', 'dsh-plugin-liang-calibrator', 'lib', 'assets', 'frames', 'frame-00.webp'))) {
+  fail('liang calibrator missing portrait frames');
+}
+ok('liang calibrator frames present');
 
 if (existsSync(join(root, 'plugins', 'dsh-showroom', 'hub.mjs')) === false) {
   fail('dsh-showroom missing hub.mjs');

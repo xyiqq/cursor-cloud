@@ -5,6 +5,7 @@
  * - dsh-image-vision (图片理解)
  * - dsh-homeassistant (HA REST + optional MCP bridge state)
  * - dsh-showroom (展厅编排 / 孪生墙 Hub；不含 ASR)
+ * - dsh-plugin-liang-calibrator (滑动变祖器 / 模型+思考档位)
  */
 
 const { createRequire } = require('node:module');
@@ -53,11 +54,12 @@ const PLUGIN_FILES = Object.freeze([
   'hub.mjs',
   'ORIGIN.txt',
 ]);
-const PLUGIN_DIRS = Object.freeze(['web', 'skills']);
+const PLUGIN_DIRS = Object.freeze(['web', 'skills', 'lib']);
 const BUNDLED_PLUGINS = Object.freeze([
   'dsh-image-vision',
   'dsh-homeassistant',
   'dsh-showroom',
+  'dsh-plugin-liang-calibrator',
 ]);
 
 function materializeFilesystemPath(filePath) {
@@ -210,6 +212,14 @@ function isInsideAsarArchive(filePath) {
   return /(?:^|[/\\])app\.asar(?!\.unpacked)(?:[/\\]|$)/.test(String(filePath));
 }
 
+function pluginHasEntry(dir) {
+  return (
+    fs.existsSync(path.join(dir, 'index.js')) ||
+    fs.existsSync(path.join(dir, 'index.mjs')) ||
+    fs.existsSync(path.join(dir, 'lib', 'index.js'))
+  );
+}
+
 function resolveBundledPluginDir(pluginName) {
   /** @type {string[]} */
   const candidates = [];
@@ -230,9 +240,7 @@ function resolveBundledPluginDir(pluginName) {
   let asarFallback = null;
   for (const dir of candidates) {
     const hasPkg = fs.existsSync(path.join(dir, 'package.json'));
-    const hasEntry =
-      fs.existsSync(path.join(dir, 'index.js')) || fs.existsSync(path.join(dir, 'index.mjs'));
-    if (!hasPkg || !hasEntry) continue;
+    if (!hasPkg || !pluginHasEntry(dir)) continue;
     if (isInsideAsarArchive(dir)) {
       asarFallback = asarFallback || dir;
       continue;
@@ -263,7 +271,7 @@ async function installBundledPlugin({ dshHome, profileDir, pluginName }) {
     path.join(dshHome, 'profiles', 'node_modules', pluginName),
   ];
   const files = PLUGIN_FILES.filter((file) => fs.existsSync(path.join(sourceDir, file)));
-  if (!files.includes('package.json') || (!files.includes('index.js') && !files.includes('index.mjs'))) {
+  if (!files.includes('package.json') || !pluginHasEntry(sourceDir)) {
     throw new Error(`plugins/${pluginName} missing package.json or entry`);
   }
   let changed = false;
@@ -374,12 +382,7 @@ function resolveExtraPluginDir(dshHome, plugin) {
   }
   candidates.push(path.join(dshHome, 'extra-plugins', plugin.name));
   for (const dir of candidates) {
-    const hasPkg = fs.existsSync(path.join(dir, 'package.json'));
-    const hasEntry =
-      fs.existsSync(path.join(dir, 'index.js')) ||
-      fs.existsSync(path.join(dir, 'index.mjs')) ||
-      fs.existsSync(path.join(dir, 'lib', 'index.js'));
-    if (hasPkg && hasEntry) return dir;
+    if (fs.existsSync(path.join(dir, 'package.json')) && pluginHasEntry(dir)) return dir;
   }
   return null;
 }
@@ -411,6 +414,8 @@ function buildCordisPatchYaml(dshHome) {
       name: dsh-showroom
       config:
         enabled: true
+    - id: liang-calibrator
+      name: dsh-plugin-liang-calibrator
 `,
   ];
 

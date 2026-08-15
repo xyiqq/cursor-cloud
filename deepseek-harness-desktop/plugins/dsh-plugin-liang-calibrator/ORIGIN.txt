@@ -1,0 +1,3 @@
+Bundled from https://github.com/BruzWJ/Liang-Saint-Slider
+Package: dsh-plugin-liang-calibrator (滑动变祖器)
+MIT; portrait assets belong to original authors — see upstream README.
