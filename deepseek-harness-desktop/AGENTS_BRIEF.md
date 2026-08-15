@@ -11,7 +11,7 @@
 | 项 | 选择 |
 |---|---|
 | 壳 | Electron 43.4.0 |
-| 打包 | electron-builder：`zip` + `portable`；`asar` + `asarUnpack: node_modules/**` |
+| 打包 | electron-builder：Windows `zip`/`portable` + macOS `zip`（arm64/x64）；`asar` + `asarUnpack: node_modules/**` + `plugins/**` |
 | Runtime | `@deepseek-ai/dsh` 及 boot 包作为 **app dependencies**（不进 extraResources） |
 | 启动 | `ELECTRON_RUN_AS_NODE=1` + `process.execPath --expose-internals lib/bin.js --profile desktop --port 0` |
 | Profile | `~/.dsh/profiles/desktop`（`electron/profile.js` 链接官方 bundles） |

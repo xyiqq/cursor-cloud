@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Force-install Windows native optionalDependencies into node_modules.
- * Linux CI cannot `npm install` os:win32 packages (EBADPLATFORM); use npm pack.
+ * Force-install Windows + macOS native optionalDependencies into node_modules.
+ * Linux CI cannot `npm install` os-specific packages (EBADPLATFORM); use npm pack.
  */
 import { spawnSync } from 'node:child_process';
 import {
@@ -54,7 +54,7 @@ function koffiVersion() {
   try {
     return JSON.parse(readFileSync(join(nm, 'koffi', 'package.json'), 'utf8')).version;
   } catch {
-    return '3.1.4';
+    return '3.1.5';
   }
 }
 
@@ -71,10 +71,22 @@ function main() {
     console.warn('[natives] @deepseek-ai/dsh not installed yet; skip');
     return;
   }
+  const koffi = koffiVersion();
+  const sharp = sharpVersion();
   const specs = [
-    `@koromix/koffi-win32-x64@${koffiVersion()}`,
-    `@img/sharp-win32-x64@${sharpVersion()}`,
+    // Windows
+    `@koromix/koffi-win32-x64@${koffi}`,
+    `@img/sharp-win32-x64@${sharp}`,
     'node-addon-require-builtin-win32-x64-msvc@0.1.4',
+    // macOS Apple Silicon + Intel
+    `@koromix/koffi-darwin-arm64@${koffi}`,
+    `@koromix/koffi-darwin-x64@${koffi}`,
+    `@img/sharp-darwin-arm64@${sharp}`,
+    `@img/sharp-darwin-x64@${sharp}`,
+    `@img/sharp-libvips-darwin-arm64@1.3.2`,
+    `@img/sharp-libvips-darwin-x64@1.3.2`,
+    'node-addon-require-builtin-darwin-arm64@0.1.4',
+    'node-addon-require-builtin-darwin-x64@0.1.4',
   ];
   for (const spec of specs) {
     try {
@@ -86,11 +98,13 @@ function main() {
   const required = [
     join(nm, '@koromix', 'koffi-win32-x64'),
     join(nm, '@img', 'sharp-win32-x64'),
+    join(nm, '@koromix', 'koffi-darwin-arm64'),
+    join(nm, '@img', 'sharp-darwin-arm64'),
   ];
   for (const p of required) {
-    if (!existsSync(p)) throw new Error(`missing Windows native: ${p}`);
+    if (!existsSync(p)) throw new Error(`missing platform native: ${p}`);
   }
-  console.log('[natives] Windows native modules ready');
+  console.log('[natives] Windows + macOS native modules ready');
 }
 
 main();

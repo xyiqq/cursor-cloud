@@ -17,7 +17,10 @@
 
 - **不用每次去网页下包**：客户端会自己检测并下载。
 - **仍是完整 ZIP**：便携版暂无差量 blockmap；体积与发版包相当，但流程全自动。
-- 发布时请继续上传命名规范资产：`DeepSeek-Harness-<version>-win-x64.zip`（可用连字符名；发布脚本会复制一份）。
+- 发布时请上传命名规范资产：
+  - Windows：`DeepSeek-Harness-<version>-win-x64.zip`
+  - macOS：`DeepSeek-Harness-<version>-mac-arm64.zip` / `...-mac-x64.zip`
+  （electron-builder 产物名可能带空格，发布前复制为连字符名。）
 
 ## 发布仓库
 

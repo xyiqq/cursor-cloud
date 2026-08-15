@@ -1,8 +1,8 @@
 {
   "name": "deepseek-harness-desktop",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
-  "description": "DeepSeek Harness Windows desktop client (Electron + official dsh)",
+  "description": "DeepSeek Harness desktop client (Electron + official dsh) for Windows and macOS",
   "main": "electron/main.js",
   "author": "DeepSeek Harness Desktop Contributors",
   "license": "MIT",
@@ -15,7 +15,9 @@
     "start": "cross-env ELECTRON_DEV=1 electron .",
     "dist": "npm run sync:natives && npm run patch:picker && npm run patch:apiproxy && npm run verify:runtime && electron-builder --win",
     "dist:dir": "electron-builder --win --dir",
-    "dist:zip": "npm run sync:natives && npm run patch:picker && npm run patch:apiproxy && npm run verify:runtime && electron-builder --win zip --x64"
+    "dist:zip": "npm run sync:natives && npm run patch:picker && npm run patch:apiproxy && npm run verify:runtime && electron-builder --win zip --x64",
+    "dist:mac": "npm run sync:natives && npm run patch:picker && npm run patch:apiproxy && npm run verify:runtime && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac zip --arm64 --x64",
+    "dist:all": "npm run sync:natives && npm run patch:picker && npm run patch:apiproxy && npm run verify:runtime && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win zip --x64 --mac zip --arm64 --x64"
   },
   "engines": {
     "node": ">=22.19.0"

@@ -151,13 +151,15 @@ async function extractZip(zipPath, destDir) {
 function findStagedAppRoot(extractRoot) {
   const entries = fs.readdirSync(extractRoot, { withFileTypes: true });
   const exeName = 'DeepSeek Harness.exe';
+  const macApp = 'DeepSeek Harness.app';
   if (fs.existsSync(path.join(extractRoot, exeName))) return extractRoot;
+  if (fs.existsSync(path.join(extractRoot, macApp))) return path.join(extractRoot, macApp);
   for (const ent of entries) {
     if (!ent.isDirectory()) continue;
     const candidate = path.join(extractRoot, ent.name);
-    if (fs.existsSync(path.join(candidate, exeName)) || fs.existsSync(path.join(candidate, 'DeepSeek Harness'))) {
-      return candidate;
-    }
+    if (fs.existsSync(path.join(candidate, exeName))) return candidate;
+    if (fs.existsSync(path.join(candidate, macApp))) return path.join(candidate, macApp);
+    if (ent.name.endsWith('.app')) return candidate;
   }
   return extractRoot;
 }
@@ -220,7 +222,7 @@ function initUpdater(app, opts = {}) {
       }
       const asset = pickZipAsset(release);
       if (!asset?.browser_download_url) {
-        throw new Error('最新 Release 未找到 win-x64 ZIP 资源');
+        throw new Error('最新 Release 未找到当前平台的 ZIP 资源');
       }
       broadcast('update:status', {
         state: 'available',

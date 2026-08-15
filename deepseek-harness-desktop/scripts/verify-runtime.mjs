@@ -50,11 +50,13 @@ try {
 for (const rel of [
   '@koromix/koffi-win32-x64',
   '@img/sharp-win32-x64',
+  '@koromix/koffi-darwin-arm64',
+  '@img/sharp-darwin-arm64',
 ]) {
   const p = join(root, 'node_modules', ...rel.split('/'));
-  if (!existsSync(p)) fail(`missing Windows native ${rel}`);
+  if (!existsSync(p)) fail(`missing platform native ${rel}`);
 }
-ok('Windows natives present (koffi/sharp)');
+ok('platform natives present (win32 + darwin-arm64)');
 
 const worker = join(
   root,
@@ -120,7 +122,18 @@ const asset = pickZipAsset({
     { name: 'DeepSeek-Harness-0.3.0-win-x64.zip', browser_download_url: 'https://example/x.zip' },
   ],
 });
-if (!asset || !/0\.3\.0/.test(asset.name)) fail('pickZipAsset');
-ok('OTA helpers (cmpVersion/pickZipAsset)');
+if (!asset || !/0\.3\.0/.test(asset.name)) fail('pickZipAsset win');
+const macAsset = pickZipAsset(
+  {
+    assets: [
+      { name: 'DeepSeek-Harness-0.4.2-win-x64.zip' },
+      { name: 'DeepSeek-Harness-0.4.2-mac-arm64.zip', browser_download_url: 'https://example/m.zip' },
+      { name: 'DeepSeek-Harness-0.4.2-mac-x64.zip' },
+    ],
+  },
+  { platform: 'darwin', arch: 'arm64' },
+);
+if (!macAsset || !/mac-arm64/.test(macAsset.name)) fail('pickZipAsset mac-arm64');
+ok('OTA helpers (cmpVersion/pickZipAsset win+mac)');
 
 console.log('[verify] all checks passed');
