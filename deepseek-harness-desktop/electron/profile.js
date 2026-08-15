@@ -327,10 +327,76 @@ function readHaMcpState(dshHome) {
   return readJsonSync(path.join(dshHome, 'desktop-ha-mcp.json'));
 }
 
+/**
+ * User-managed local plugins that survive profile rewrites.
+ * File: `$DSH_HOME/desktop-extra-plugins.json`
+ *
+ * ```json
+ * [
+ *   {
+ *     "id": "liang-calibrator",
+ *     "name": "dsh-plugin-liang-calibrator",
+ *     "path": "C:/path/to/Liang-Saint-Slider"
+ *   }
+ * ]
+ * ```
+ *
+ * `path` may be absolute, or relative to `$DSH_HOME`. If omitted, defaults to
+ * `$DSH_HOME/extra-plugins/<name>`.
+ *
+ * @returns {Array<{ id: string, name: string, path?: string, config?: object }>}
+ */
+function readExtraPlugins(dshHome) {
+  const raw = readJsonSync(path.join(dshHome, 'desktop-extra-plugins.json'));
+  const list = Array.isArray(raw) ? raw : Array.isArray(raw?.plugins) ? raw.plugins : [];
+  return list
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const name = String(item.name || '').trim();
+      if (!name) return null;
+      const id = String(item.id || name.replace(/^@/, '').replace(/[/\\]/g, '-')).trim();
+      return {
+        id,
+        name,
+        path: item.path ? String(item.path) : undefined,
+        config: item.config && typeof item.config === 'object' ? item.config : undefined,
+      };
+    })
+    .filter(Boolean);
+}
+
+function resolveExtraPluginDir(dshHome, plugin) {
+  const candidates = [];
+  if (plugin.path) {
+    candidates.push(
+      path.isAbsolute(plugin.path) ? plugin.path : path.join(dshHome, plugin.path),
+    );
+  }
+  candidates.push(path.join(dshHome, 'extra-plugins', plugin.name));
+  for (const dir of candidates) {
+    const hasPkg = fs.existsSync(path.join(dir, 'package.json'));
+    const hasEntry =
+      fs.existsSync(path.join(dir, 'index.js')) ||
+      fs.existsSync(path.join(dir, 'index.mjs')) ||
+      fs.existsSync(path.join(dir, 'lib', 'index.js'));
+    if (hasPkg && hasEntry) return dir;
+  }
+  return null;
+}
+
+function formatCordisConfig(config, indent = '        ') {
+  if (!config || typeof config !== 'object' || !Object.keys(config).length) return '';
+  const lines = ['      config:'];
+  for (const [key, value] of Object.entries(config)) {
+    lines.push(`${indent}${key}: ${JSON.stringify(value)}`);
+  }
+  return `${lines.join('\n')}\n`;
+}
+
 function buildCordisPatchYaml(dshHome) {
   const parts = [
     `# Managed by DeepSeek Harness Desktop — bundled plugins.
-# Do not hand-edit unless you know how cordis patches work.
+# Local extras: edit $DSH_HOME/desktop-extra-plugins.json (do not hand-edit this file).
 - insert:
     - id: image-vision
       name: dsh-image-vision
@@ -347,6 +413,12 @@ function buildCordisPatchYaml(dshHome) {
         enabled: true
 `,
   ];
+
+  for (const plugin of readExtraPlugins(dshHome)) {
+    parts.push(`    - id: ${plugin.id}
+      name: ${JSON.stringify(plugin.name)}
+${formatCordisConfig(plugin.config)}`);
+  }
 
   const mcp = readHaMcpState(dshHome);
   if (mcp?.enabled && mcp.url) {
@@ -389,6 +461,13 @@ async function ensureDesktopProfile({ dshHome, profileName = 'desktop' } = {}) {
       manifest.dependencies[pluginName] = `link:${dir.replaceAll('\\', '/')}`;
     }
   }
+  const extraPlugins = readExtraPlugins(dshHome);
+  for (const plugin of extraPlugins) {
+    const dir = resolveExtraPluginDir(dshHome, plugin);
+    if (dir) {
+      manifest.dependencies[plugin.name] = `link:${dir.replaceAll('\\', '/')}`;
+    }
+  }
   manifest.dependencies = Object.fromEntries(
     Object.entries(manifest.dependencies).toSorted(([a], [b]) => a.localeCompare(b)),
   );
@@ -412,6 +491,21 @@ async function ensureDesktopProfile({ dshHome, profileName = 'desktop' } = {}) {
       previous: previousRecords[packageName],
     });
     nextRecords[packageName] = result.record;
+    changed = result.changed || changed;
+  }
+  for (const plugin of extraPlugins) {
+    const sourceDir = resolveExtraPluginDir(dshHome, plugin);
+    if (!sourceDir) {
+      console.warn(`[profile] extra plugin missing on disk: ${plugin.name}`);
+      continue;
+    }
+    const result = await linkManagedPackage({
+      packageName: plugin.name,
+      profileDir,
+      sourceDir,
+      previous: previousRecords[plugin.name],
+    });
+    nextRecords[plugin.name] = result.record;
     changed = result.changed || changed;
   }
   changed = (await writeIfChanged(recordPath, `${JSON.stringify(nextRecords, null, 2)}\n`)) || changed;
@@ -448,4 +542,6 @@ module.exports = {
   resolveBundledImageVisionDir: () => resolveBundledPluginDir('dsh-image-vision'),
   resolveDshCliPath,
   buildCordisPatchYaml,
+  readExtraPlugins,
+  resolveExtraPluginDir,
 };

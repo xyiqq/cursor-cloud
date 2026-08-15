@@ -50,6 +50,7 @@ npm run dist:zip
 
 - [docs/homeassistant.md](docs/homeassistant.md) — Home Assistant 接入
 - [docs/showroom.md](docs/showroom.md) — 展厅插件用法
+- [docs/plugins-local.md](docs/plugins-local.md) — 本地安装社区插件（如滑动变祖器）
 - [docs/showroom-roadmap.md](docs/showroom-roadmap.md) — 展厅能力规划（含 ASR 暂缓说明）
 - [docs/ota.md](docs/ota.md) — OTA
 - [AGENTS_BRIEF.md](AGENTS_BRIEF.md) — 代理协作摘要
