@@ -205,23 +205,52 @@ function createDesktopProfileManifest(existing = {}) {
   };
 }
 
+function isInsideAsarArchive(filePath) {
+  // Real disk twin is app.asar.unpacked; plain app.asar cannot fs.cp directories.
+  return /(?:^|[/\\])app\.asar(?!\.unpacked)(?:[/\\]|$)/.test(String(filePath));
+}
+
 function resolveBundledPluginDir(pluginName) {
-  const candidates = [path.join(__dirname, '..', 'plugins', pluginName)];
+  /** @type {string[]} */
+  const candidates = [];
+  const push = (dir) => {
+    if (!dir) return;
+    const physical = materializeFilesystemPath(dir);
+    for (const d of [physical, dir]) {
+      if (d && !candidates.includes(d)) candidates.push(d);
+    }
+  };
+  // Prefer unpacked / real filesystem paths first (packaged Electron).
   if (process.resourcesPath) {
-    candidates.push(
-      path.join(process.resourcesPath, 'app.asar.unpacked', 'plugins', pluginName),
-      materializeFilesystemPath(path.join(process.resourcesPath, 'app.asar', 'plugins', pluginName)),
-      path.join(process.resourcesPath, 'app.asar', 'plugins', pluginName),
-      path.join(process.resourcesPath, 'plugins', pluginName),
-    );
+    push(path.join(process.resourcesPath, 'app.asar.unpacked', 'plugins', pluginName));
+    push(path.join(process.resourcesPath, 'plugins', pluginName));
   }
+  push(path.join(__dirname, '..', 'plugins', pluginName));
+
+  let asarFallback = null;
   for (const dir of candidates) {
     const hasPkg = fs.existsSync(path.join(dir, 'package.json'));
     const hasEntry =
       fs.existsSync(path.join(dir, 'index.js')) || fs.existsSync(path.join(dir, 'index.mjs'));
-    if (hasPkg && hasEntry) return dir;
+    if (!hasPkg || !hasEntry) continue;
+    if (isInsideAsarArchive(dir)) {
+      asarFallback = asarFallback || dir;
+      continue;
+    }
+    return dir;
   }
-  return null;
+  return asarFallback;
+}
+
+async function copyPluginTree(fromDir, toDir) {
+  const physical = materializeFilesystemPath(fromDir);
+  const src = fs.existsSync(physical) ? physical : fromDir;
+  if (isInsideAsarArchive(src)) {
+    throw new Error(
+      `cannot copy plugin directory from asar (${src}); expected app.asar.unpacked twin`,
+    );
+  }
+  await fsp.cp(src, toDir, { recursive: true, force: true });
 }
 
 async function installBundledPlugin({ dshHome, profileDir, pluginName }) {
@@ -264,19 +293,31 @@ async function installBundledPlugin({ dshHome, profileDir, pluginName }) {
     }
     for (const dirName of PLUGIN_DIRS) {
       const fromDir = path.join(sourceDir, dirName);
-      if (!fs.existsSync(fromDir)) continue;
+      const physicalDir = materializeFilesystemPath(fromDir);
+      const srcDir = fs.existsSync(physicalDir)
+        ? physicalDir
+        : fs.existsSync(fromDir)
+          ? fromDir
+          : null;
+      if (!srcDir) continue;
       const toDir = path.join(dest, dirName);
-      await fsp.cp(fromDir, toDir, { recursive: true, force: true });
+      await copyPluginTree(srcDir, toDir);
       changed = true;
     }
   }
 
   // Mirror narration skills into DSH_HOME/skills for optional host pickup.
-  const skillsSrc = path.join(sourceDir, 'skills');
-  if (fs.existsSync(skillsSrc)) {
+  const skillsSrcRaw = path.join(sourceDir, 'skills');
+  const skillsPhysical = materializeFilesystemPath(skillsSrcRaw);
+  const skillsSrc = fs.existsSync(skillsPhysical)
+    ? skillsPhysical
+    : fs.existsSync(skillsSrcRaw)
+      ? skillsSrcRaw
+      : null;
+  if (skillsSrc && !isInsideAsarArchive(skillsSrc)) {
     const skillsDest = path.join(dshHome, 'skills', 'showroom');
     await fsp.mkdir(skillsDest, { recursive: true });
-    await fsp.cp(skillsSrc, skillsDest, { recursive: true, force: true });
+    await copyPluginTree(skillsSrc, skillsDest);
   }
 
   return { changed, sourceDir, targets };

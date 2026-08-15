@@ -9,11 +9,11 @@
 - **展厅 Showroom**（孪生墙 / Show Mode / 拍照控灯 / 许愿；不含 ASR）
 - **ZIP OTA**：启动自动检测 GitHub Releases 新版本并下载安装
 
-## 下载（v0.4.0）
+## 下载（v0.4.1）
 
-https://github.com/xyiqq/cursor-cloud/releases/tag/v0.4.0
+https://github.com/xyiqq/cursor-cloud/releases/tag/v0.4.1
 
-**Windows ZIP：** https://github.com/xyiqq/cursor-cloud/releases/download/v0.4.0/DeepSeek-Harness-0.4.0-win-x64.zip
+**Windows ZIP：** https://github.com/xyiqq/cursor-cloud/releases/download/v0.4.1/DeepSeek-Harness-0.4.1-win-x64.zip
 
 1. 解压到短路径，例如 `C:\dsh-desktop\`
 2. 运行 `DeepSeek Harness.exe`

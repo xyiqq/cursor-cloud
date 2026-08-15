@@ -19,6 +19,8 @@ files:
   - node_modules/**/*
   - "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}"
   - "!**/*.{md,map}"
+  # Re-include plugin skill packs (excluded by the *.md rule above).
+  - plugins/*/skills/**/*
   - "!**/test/**"
 
 npmRebuild: false
