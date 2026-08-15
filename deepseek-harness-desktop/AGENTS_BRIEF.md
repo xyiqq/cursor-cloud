@@ -42,9 +42,12 @@ npm start
 npm run dist:zip
 ```
 
-## 展厅后续
+## 展厅
 
-见 [docs/showroom-roadmap.md](docs/showroom-roadmap.md)：拍照控灯、数字孪生墙、语音意图（ASR 外置）等。
+见 [docs/showroom.md](docs/showroom.md) / [docs/showroom-roadmap.md](docs/showroom-roadmap.md)。
+
+- 插件：`plugins/dsh-showroom`（P0–P2；**ASR 暂缓**）
+- Hub 默认 `127.0.0.1:18765`；菜单「展厅」打开页面
 
 ## 禁止
 
