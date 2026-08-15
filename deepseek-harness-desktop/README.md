@@ -39,6 +39,13 @@ npm start
 npm run dist:zip
 ```
 
+## 文档
+
+- [docs/homeassistant.md](docs/homeassistant.md) — Home Assistant 接入
+- [docs/showroom-roadmap.md](docs/showroom-roadmap.md) — **展厅能力与后续开发计划**（拍照控灯、孪生墙、语音意图等）
+- [docs/ota.md](docs/ota.md) — OTA
+- [AGENTS_BRIEF.md](AGENTS_BRIEF.md) — 代理协作摘要
+
 ## 许可证
 
 壳代码 MIT。`@deepseek-ai/dsh` 与第三方插件遵循各自许可。

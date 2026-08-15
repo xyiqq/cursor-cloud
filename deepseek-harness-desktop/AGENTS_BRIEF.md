@@ -42,6 +42,10 @@ npm start
 npm run dist:zip
 ```
 
+## 展厅后续
+
+见 [docs/showroom-roadmap.md](docs/showroom-roadmap.md)：拍照控灯、数字孪生墙、语音意图（ASR 外置）等。
+
 ## 禁止
 
 - 提交 API Key / `.credentials.yaml` / `.env`
