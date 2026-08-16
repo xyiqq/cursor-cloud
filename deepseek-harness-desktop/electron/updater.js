@@ -15,7 +15,7 @@ const https = require('node:https');
 const http = require('node:http');
 const { spawn } = require('node:child_process');
 const { dialog, BrowserWindow, app: electronApp } = require('electron');
-const { cmpVersion, pickZipAsset, pickNewestRelease } = require('./update-utils');
+const { cmpVersion, pickZipAsset, pickNewestRelease, tagFromLatestLocation, buildDesktopRelease } = require('./update-utils');
 
 const OWNER = () => process.env.GH_PUBLISH_OWNER || process.env.DSH_DESKTOP_GH_OWNER || 'xyiqq';
 const REPO = () => process.env.GH_PUBLISH_REPO || process.env.DSH_DESKTOP_GH_REPO || 'cursor-cloud';
@@ -71,19 +71,93 @@ function httpGetJson(url, headers = {}) {
   });
 }
 
-async function fetchNewestRelease() {
+/**
+ * Resolve latest release tag via github.com HTML redirect — avoids api.github.com
+ * rate limits (common on shared / cloud egress IPs).
+ */
+function resolveLatestTagFromWeb() {
+  const url = `https://github.com/${OWNER()}/${REPO()}/releases/latest`;
+  return new Promise((resolve, reject) => {
+    const req = https.get(
+      url,
+      {
+        headers: {
+          Accept: 'text/html',
+          'User-Agent': 'DeepSeek-Harness-Desktop-OTA',
+        },
+        timeout: 30_000,
+      },
+      (res) => {
+        res.resume();
+        const loc = res.headers.location || '';
+        const fromLoc = tagFromLatestLocation(loc);
+        if (fromLoc) {
+          resolve(fromLoc);
+          return;
+        }
+        // Some environments follow redirects internally; fall back to final URL if present.
+        const tag = tagFromLatestLocation(res.responseUrl || url);
+        if (tag) {
+          resolve(tag);
+          return;
+        }
+        reject(
+          new Error(
+            `无法从 GitHub 网页解析最新版本（HTTP ${res.statusCode || '?'}）。可手动打开 ${RELEASES_PAGE()}`,
+          ),
+        );
+      },
+    );
+    req.on('error', reject);
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('request timeout'));
+    });
+  });
+}
+
+async function fetchNewestReleaseFromWeb() {
+  const tag = await resolveLatestTagFromWeb();
+  const release = buildDesktopRelease(tag, { owner: OWNER(), repo: REPO() });
+  if (!release || !pickZipAsset(release)) {
+    throw new Error(`无法构造 ${tag} 的桌面 ZIP 下载地址`);
+  }
+  return release;
+}
+
+async function fetchNewestReleaseFromApi() {
   const base = `https://api.github.com/repos/${OWNER()}/${REPO()}`;
   try {
     const latest = await httpGetJson(`${base}/releases/latest`);
     if (latest && !latest.draft && pickZipAsset(latest)) return latest;
   } catch (err) {
-    // Fall through to the list endpoint (rate limits / empty latest / network blips).
-    console.warn('[updater] releases/latest failed, trying list:', err?.message || err);
+    console.warn('[updater] api releases/latest failed:', err?.message || err);
   }
   const list = await httpGetJson(`${base}/releases?per_page=20`);
   const picked = pickNewestRelease(list);
   if (!picked) throw new Error('GitHub Releases 中未找到可用的桌面 ZIP');
   return picked;
+}
+
+async function fetchNewestRelease() {
+  // Prefer github.com redirect — no API quota. Fall back to API when needed.
+  try {
+    return await fetchNewestReleaseFromWeb();
+  } catch (webErr) {
+    console.warn('[updater] web latest failed, trying API:', webErr?.message || webErr);
+    try {
+      return await fetchNewestReleaseFromApi();
+    } catch (apiErr) {
+      const webMsg = String(webErr?.message || webErr);
+      const apiMsg = String(apiErr?.message || apiErr);
+      const rateLimited = /rate limit|HTTP 403/i.test(apiMsg);
+      throw new Error(
+        rateLimited
+          ? `GitHub API 限流，且网页探测失败。请稍后重试或手动下载：\n${RELEASES_PAGE()}\n\n网页：${webMsg}\nAPI：${apiMsg}`
+          : `检查更新失败。\n网页：${webMsg}\nAPI：${apiMsg}\n\n可手动下载：${RELEASES_PAGE()}`,
+      );
+    }
+  }
 }
 
 function downloadFile(url, dest, onProgress) {

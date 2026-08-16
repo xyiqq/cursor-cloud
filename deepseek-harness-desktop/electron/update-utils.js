@@ -79,4 +79,55 @@ function pickNewestRelease(releases, opts = {}) {
   return best;
 }
 
-module.exports = { parseVersion, cmpVersion, pickZipAsset, pickNewestRelease };
+/**
+ * Parse a GitHub /releases/latest redirect Location (or final URL) into a tag.
+ * @param {string} location
+ * @returns {string|null} tag like `v0.4.7`
+ */
+function tagFromLatestLocation(location) {
+  const raw = String(location || '');
+  const m = raw.match(/\/releases\/tag\/([^/?#]+)/i);
+  if (!m) return null;
+  try {
+    return decodeURIComponent(m[1]);
+  } catch {
+    return m[1];
+  }
+}
+
+/**
+ * Build a release-shaped object with direct GitHub download URLs (no API).
+ * @param {string} tagOrVersion
+ * @param {{ owner?: string, repo?: string }} [opts]
+ */
+function buildDesktopRelease(tagOrVersion, opts = {}) {
+  const owner = opts.owner || 'xyiqq';
+  const repo = opts.repo || 'cursor-cloud';
+  const ver = String(tagOrVersion || '').replace(/^v/i, '');
+  if (!parseVersion(ver)) return null;
+  const tag = `v${ver}`;
+  const names = [
+    `DeepSeek-Harness-${ver}-win-x64.zip`,
+    `DeepSeek-Harness-${ver}-mac-arm64.zip`,
+    `DeepSeek-Harness-${ver}-mac-x64.zip`,
+  ];
+  return {
+    tag_name: tag,
+    name: `DeepSeek Harness Desktop ${tag}`,
+    draft: false,
+    prerelease: false,
+    assets: names.map((name) => ({
+      name,
+      browser_download_url: `https://github.com/${owner}/${repo}/releases/download/${tag}/${name}`,
+    })),
+  };
+}
+
+module.exports = {
+  parseVersion,
+  cmpVersion,
+  pickZipAsset,
+  pickNewestRelease,
+  tagFromLatestLocation,
+  buildDesktopRelease,
+};

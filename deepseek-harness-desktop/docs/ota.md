@@ -10,7 +10,7 @@
 | 发现更高版本并确认 | 下载 `DeepSeek-Harness-*-{win\|mac}-*.zip`，解压到 `%APPDATA%\DeepSeek Harness\updates\`（macOS 类似） |
 | 下载完成 | 对话框「立即重启安装 / 稍后」 |
 | 立即安装 | Windows：写 `apply-update.cmd`，退出后 `robocopy` 覆盖安装目录并重启；macOS：提示手动替换 |
-| GitHub 不可达 | 错误弹窗 +「打开下载页」 |
+| GitHub 不可达 / API 限流 | 优先用 `github.com/.../releases/latest` 跳转解析版本（不占 API 配额）；仍失败则错误弹窗 +「打开下载页」 |
 
 实现：`electron/updater.js`（GitHub Releases API + ZIP，不依赖 NSIS/`latest.yml`）。
 

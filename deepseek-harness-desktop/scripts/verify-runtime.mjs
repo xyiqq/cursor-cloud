@@ -121,7 +121,7 @@ for (const ns of ['dsh-image-vision', 'dsh-homeassistant', 'dsh-showroom']) {
 ok('apiproxy allowlist exposes image-vision + homeassistant + showroom');
 
 // OTA helper unit checks (no network)
-const { cmpVersion, pickZipAsset, pickNewestRelease } = require(join(root, 'electron', 'update-utils.js'));
+const { cmpVersion, pickZipAsset, pickNewestRelease, tagFromLatestLocation, buildDesktopRelease } = require(join(root, 'electron', 'update-utils.js'));
 if (cmpVersion('0.2.1', '0.3.0') !== -1) fail('cmpVersion ordering');
 if (cmpVersion('0.3.0', '0.3.0') !== 0) fail('cmpVersion equal');
 if (cmpVersion('0.4.4', '0.4.5') !== -1) fail('cmpVersion 0.4.4 < 0.4.5');
@@ -150,6 +150,16 @@ const newest = pickNewestRelease([
   { tag_name: 'v0.1.5', draft: false, prerelease: true, assets: [{ name: 'DeepSeek-Harness-0.1.5-win-x64.zip', browser_download_url: 'https://ex/c' }] },
 ]);
 if (!newest || newest.tag_name !== 'v0.4.6') fail('pickNewestRelease');
-ok('OTA helpers (cmpVersion/pickZipAsset/pickNewestRelease)');
+if (tagFromLatestLocation('https://github.com/xyiqq/cursor-cloud/releases/tag/v0.4.7') !== 'v0.4.7') {
+  fail('tagFromLatestLocation');
+}
+const built = buildDesktopRelease('v0.4.7', { owner: 'xyiqq', repo: 'cursor-cloud' });
+if (!built || built.tag_name !== 'v0.4.7') fail('buildDesktopRelease tag');
+const winBuilt = pickZipAsset(built, { platform: 'win32', arch: 'x64' });
+if (!winBuilt || !/0\.4\.7-win-x64\.zip$/.test(winBuilt.name)) fail('buildDesktopRelease win asset');
+if (!/^https:\/\/github\.com\/xyiqq\/cursor-cloud\/releases\/download\/v0\.4\.7\//.test(winBuilt.browser_download_url)) {
+  fail('buildDesktopRelease url');
+}
+ok('OTA helpers (cmpVersion/pickZipAsset/pickNewestRelease/web-fallback)');
 
 console.log('[verify] all checks passed');
