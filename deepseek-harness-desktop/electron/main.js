@@ -24,6 +24,8 @@ const {
   ensureDesktopProfile,
   materializeFilesystemPath,
   resolveDshCliPath,
+  readLiangCalibratorState,
+  writeLiangCalibratorState,
 } = require('./profile');
 
 app.setName('DeepSeek Harness');
@@ -338,7 +340,46 @@ function openShowroomPage(page) {
   shell.openExternal(`http://127.0.0.1:${port}/${page}`);
 }
 
+/**
+ * Toggle the bundled Liang Saint Slider (rewrites cordis.patch.yml).
+ * Requires a full app restart for cordis to load/unload the plugin.
+ * @param {boolean} enabled
+ */
+async function setLiangCalibratorEnabled(enabled) {
+  const { dshHome } = userDataPaths();
+  try {
+    writeLiangCalibratorState(dshHome, { enabled: !!enabled });
+    await ensureDesktopProfile({ dshHome });
+  } catch (err) {
+    buildMenu();
+    await dialog.showErrorBox(
+      '滑动变祖器',
+      `无法${enabled ? '开启' : '关闭'}：${err?.message || err}`,
+    );
+    return;
+  }
+  buildMenu();
+  const { response } = await dialog.showMessageBox({
+    type: 'info',
+    buttons: ['立即重启', '稍后手动重启'],
+    defaultId: 0,
+    cancelId: 1,
+    message: enabled ? '已开启滑动变祖器' : '已关闭滑动变祖器',
+    detail: enabled
+      ? '重启后，输入框旁的模型位会使用滑动校准器。'
+      : '重启后，将恢复官方默认模型选择器。',
+  });
+  if (response === 0) {
+    shuttingDown = true;
+    killDshTree();
+    app.relaunch();
+    app.quit();
+  }
+}
+
 function buildMenu() {
+  const { dshHome } = userDataPaths();
+  const liangEnabled = readLiangCalibratorState(dshHome).enabled;
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
       {
@@ -359,6 +400,19 @@ function buildMenu() {
           },
           { type: 'separator' },
           { role: 'quit', label: '退出' },
+        ],
+      },
+      {
+        label: '插件',
+        submenu: [
+          {
+            label: '滑动变祖器',
+            type: 'checkbox',
+            checked: liangEnabled,
+            click: (menuItem) => {
+              void setLiangCalibratorEnabled(!!menuItem.checked);
+            },
+          },
         ],
       },
       {
@@ -459,6 +513,8 @@ async function bootstrap() {
       Object.keys(profile.plugins || {}),
       'mcp=',
       profile.mcpEnabled,
+      'liang=',
+      profile.liangCalibratorEnabled,
     );
   } catch (err) {
     const message = `准备 desktop profile 失败：${err?.message || err}`;

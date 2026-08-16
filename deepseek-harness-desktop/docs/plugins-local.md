@@ -55,6 +55,8 @@ git clone https://github.com/BruzWJ/Liang-Saint-Slider.git ~/.dsh/extra-plugins/
 
 点输入框旁的模型位，应打开滑动变祖器。
 
+> **v0.4.5+ 内置开关：** 菜单 **插件 → 滑动变祖器** 可开关内置版（写入 `$DSH_HOME/desktop-liang-calibrator.json`，重启生效）。关闭后恢复官方默认模型选择器。若你仍用 `desktop-extra-plugins.json` 挂本地克隆，关闭内置开关后仍可单独用 extras 加载。
+
 ### 卸载
 
 1. 从 `desktop-extra-plugins.json` 删掉对应项（或清空为 `[]`）
@@ -65,7 +67,8 @@ git clone https://github.com/BruzWJ/Liang-Saint-Slider.git ~/.dsh/extra-plugins/
 
 | 项 | 说明 |
 |---|---|
-| 需要哪版客户端 | **v0.4.3+** 已内置；**v0.4.4+** 滑条只调当前模型强度（不换模型）。亦可用 `desktop-extra-plugins.json` 挂其它本地插件。 |
+| 需要哪版客户端 | **v0.4.3+** 已内置；**v0.4.4+** 滑条只调当前模型强度；**v0.4.5+** 菜单可开关。亦可用 `desktop-extra-plugins.json` 挂其它本地插件。 |
+| 开关状态文件 | `$DSH_HOME/desktop-liang-calibrator.json`（默认 `enabled: true`） |
 | 官方 README | 上游写的是 `--profile web`；桌面端固定用 **`desktop`** profile，按本文即可。上游原设计是模型×强度一条轴；桌面内置版改为先选模型再滑强度。 |
 | 未上 npm | 该插件目前需从 GitHub clone，不能 `npm i dsh-plugin-liang-calibrator`。 |
 | 肖像素材 | 肖像版权归原作者，见上游 README。 |

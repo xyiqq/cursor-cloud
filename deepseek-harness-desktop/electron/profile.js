@@ -5,7 +5,7 @@
  * - dsh-image-vision (图片理解)
  * - dsh-homeassistant (HA REST + optional MCP bridge state)
  * - dsh-showroom (展厅编排 / 孪生墙 Hub；不含 ASR)
- * - dsh-plugin-liang-calibrator (滑动变祖器 / 先选模型，滑条只调思考强度)
+ * - dsh-plugin-liang-calibrator (滑动变祖器 / 可开关；先选模型，滑条只调思考强度)
  */
 
 const { createRequire } = require('node:module');
@@ -335,6 +335,38 @@ function readHaMcpState(dshHome) {
   return readJsonSync(path.join(dshHome, 'desktop-ha-mcp.json'));
 }
 
+/** State file for the bundled Liang Saint Slider toggle. */
+const LIANG_STATE_FILE = 'desktop-liang-calibrator.json';
+
+/**
+ * Read whether the bundled sliding calibrator should be inserted into cordis.
+ * Missing / invalid file defaults to **enabled** (current shipping behavior).
+ * @param {string} dshHome
+ * @returns {{ enabled: boolean }}
+ */
+function readLiangCalibratorState(dshHome) {
+  const raw = readJsonSync(path.join(dshHome, LIANG_STATE_FILE));
+  if (!raw || typeof raw !== 'object') return { enabled: true };
+  if (raw.enabled === false) return { enabled: false };
+  return { enabled: true };
+}
+
+/**
+ * Persist the bundled Liang calibrator on/off flag.
+ * @param {string} dshHome
+ * @param {{ enabled: boolean }} state
+ */
+function writeLiangCalibratorState(dshHome, state) {
+  const file = path.join(dshHome, LIANG_STATE_FILE);
+  const payload = {
+    enabled: state?.enabled !== false,
+    updatedAt: new Date().toISOString(),
+  };
+  fs.mkdirSync(dshHome, { recursive: true });
+  fs.writeFileSync(file, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+  return payload;
+}
+
 /**
  * User-managed local plugins that survive profile rewrites.
  * File: `$DSH_HOME/desktop-extra-plugins.json`
@@ -397,9 +429,11 @@ function formatCordisConfig(config, indent = '        ') {
 }
 
 function buildCordisPatchYaml(dshHome) {
+  const liangEnabled = readLiangCalibratorState(dshHome).enabled;
   const parts = [
     `# Managed by DeepSeek Harness Desktop — bundled plugins.
 # Local extras: edit $DSH_HOME/desktop-extra-plugins.json (do not hand-edit this file).
+# Bundled Liang slider: $DSH_HOME/desktop-liang-calibrator.json (menu: 插件 → 滑动变祖器).
 - insert:
     - id: image-vision
       name: dsh-image-vision
@@ -414,12 +448,18 @@ function buildCordisPatchYaml(dshHome) {
       name: dsh-showroom
       config:
         enabled: true
-    - id: liang-calibrator
-      name: dsh-plugin-liang-calibrator
 `,
   ];
 
+  if (liangEnabled) {
+    parts.push(`    - id: liang-calibrator
+      name: dsh-plugin-liang-calibrator
+`);
+  }
+
   for (const plugin of readExtraPlugins(dshHome)) {
+    // Avoid double-insert when the bundled toggle already owns this id.
+    if (liangEnabled && plugin.id === 'liang-calibrator') continue;
     parts.push(`    - id: ${plugin.id}
       name: ${JSON.stringify(plugin.name)}
 ${formatCordisConfig(plugin.config)}`);
@@ -528,6 +568,7 @@ async function ensureDesktopProfile({ dshHome, profileName = 'desktop' } = {}) {
     profileDir,
     plugins: installedPlugins,
     mcpEnabled: !!readHaMcpState(dshHome)?.enabled,
+    liangCalibratorEnabled: readLiangCalibratorState(dshHome).enabled,
   };
 }
 
@@ -541,6 +582,7 @@ module.exports = {
   BUILTIN_BUNDLES,
   MANAGED_PACKAGES,
   BUNDLED_PLUGINS,
+  LIANG_STATE_FILE,
   materializeFilesystemPath,
   ensureDesktopProfile,
   resolveBundledPluginDir,
@@ -549,4 +591,6 @@ module.exports = {
   buildCordisPatchYaml,
   readExtraPlugins,
   resolveExtraPluginDir,
+  readLiangCalibratorState,
+  writeLiangCalibratorState,
 };
