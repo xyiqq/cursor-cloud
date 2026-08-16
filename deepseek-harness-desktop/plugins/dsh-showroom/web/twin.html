@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>展厅孪生墙</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1 id="title">展厅孪生墙</h1>
+    <div class="nav">
+      <span class="meta" id="status">连接中…</span>
+      <a href="./panel.html">控制台</a>
+      <a href="./viz.html">工具条</a>
+      <a href="./wish.html">许愿</a>
+    </div>
+  </header>
+  <div class="stage" id="stage"></div>
+  <div class="feed" id="feed"></div>
+  <script src="./common.js"></script>
+  <script>
+    const stage = document.getElementById('stage');
+    const feed = document.getElementById('feed');
+    const statusEl = document.getElementById('status');
+    const nodesById = new Map();
+    let pollMs = 3000;
+    let focusTimer = null;
+
+    function pushFeed(ev) {
+      const div = document.createElement('div');
+      div.className = 'item';
+      const tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.textContent = ev.type || 'event';
+      div.appendChild(tag);
+      div.appendChild(document.createTextNode(
+        `${Showroom.fmtTime(ev.ts)}  ${ev.message || ev.tool || ev.mode || ev.query || JSON.stringify(ev).slice(0, 120)}`
+      ));
+      feed.prepend(div);
+      while (feed.children.length > 40) feed.lastChild.remove();
+    }
+
+    function setFocus(ids) {
+      for (const el of nodesById.values()) el.classList.remove('focus');
+      (ids || []).forEach((id) => {
+        const el = nodesById.get(id);
+        if (el) el.classList.add('focus');
+      });
+      clearTimeout(focusTimer);
+      focusTimer = setTimeout(() => {
+        for (const el of nodesById.values()) el.classList.remove('focus');
+      }, 8000);
+    }
+
+    function renderLayout(layout) {
+      stage.innerHTML = '';
+      nodesById.clear();
+      if (layout.title) document.getElementById('title').textContent = layout.title;
+      (layout.nodes || []).forEach((n) => {
+        const el = document.createElement('div');
+        el.className = 'node';
+        el.style.left = `${Number(n.x) || 50}%`;
+        el.style.top = `${Number(n.y) || 50}%`;
+        el.innerHTML = `<div class="label">${n.label || n.id}</div><div class="state">—</div>`;
+        stage.appendChild(el);
+        nodesById.set(n.id, el);
+      });
+    }
+
+    async function pollStates() {
+      try {
+        const states = await Showroom.api('/api/ha/states');
+        const map = new Map();
+        (Array.isArray(states) ? states : []).forEach((s) => map.set(s.entity_id, s));
+        for (const [id, el] of nodesById) {
+          const st = map.get(id);
+          const stateEl = el.querySelector('.state');
+          if (!st) {
+            stateEl.textContent = 'missing';
+            el.classList.remove('on');
+            continue;
+          }
+          stateEl.textContent = st.state;
+          const on = st.state === 'on' || st.state === 'open' || Number(st.state) > 0;
+          el.classList.toggle('on', !!on);
+        }
+        statusEl.textContent = `已同步 · ${new Date().toLocaleTimeString()}`;
+      } catch (err) {
+        statusEl.textContent = `HA 同步失败：${err.message}`;
+      }
+    }
+
+    async function boot() {
+      try {
+        const [layout, cfg] = await Promise.all([
+          Showroom.api('/api/layout'),
+          Showroom.api('/api/config'),
+        ]);
+        pollMs = Number(cfg.pollMs) || 3000;
+        renderLayout(layout);
+        await pollStates();
+        setInterval(pollStates, pollMs);
+        Showroom.connectSSE((ev) => {
+          pushFeed(ev);
+          if (ev.entity_ids) setFocus(ev.entity_ids);
+        });
+        statusEl.textContent = 'SSE 已连接';
+      } catch (err) {
+        statusEl.textContent = err.message;
+      }
+    }
+    boot();
+  </script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>工具调用可视化</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>工具调用可视化</h1>
+    <div class="nav">
+      <span class="meta" id="status">等待事件…</span>
+      <a href="./twin.html">孪生墙</a>
+      <a href="./panel.html">控制台</a>
+    </div>
+  </header>
+  <div class="panel-wrap">
+    <div class="card">
+      <h2>实时条</h2>
+      <div class="viz-list" id="list"></div>
+    </div>
+  </div>
+  <script src="./common.js"></script>
+  <script>
+    const list = document.getElementById('list');
+    const statusEl = document.getElementById('status');
+
+    function add(ev) {
+      if (!ev || ev.type === 'hello') return;
+      const item = document.createElement('div');
+      item.className = 'viz-item' + (ev.ok === false ? ' bad' : '');
+      const name = ev.tool || ev.type || 'event';
+      const detail = ev.message
+        || (ev.entity_ids && ev.entity_ids.join(', '))
+        || (ev.query ? `${ev.action || ''} ${ev.query}` : '')
+        || (ev.mode ? `mode=${ev.mode}` : '')
+        || (ev.role ? `role=${ev.role}` : '')
+        || '';
+      item.innerHTML = `<div class="name">${Showroom.fmtTime(ev.ts)} · ${name} · ${ev.ok === false ? '失败' : '成功'}</div>`
+        + (detail ? `<div class="args">${detail}</div>` : '');
+      list.prepend(item);
+      while (list.children.length > 60) list.lastChild.remove();
+    }
+
+    Showroom.connectSSE((ev) => {
+      statusEl.textContent = 'SSE 已连接';
+      add(ev);
+    });
+  </script>
+</body>
+</html>

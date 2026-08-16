@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>观众许愿</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="wish-hero">
+    <h1>许一个展厅愿望</h1>
+    <p>写下你想体验的灯光或场景。每人有冷却时间，仅触发安全场景。</p>
+    <form class="wish-form" id="form">
+      <label for="text">愿望</label>
+      <textarea id="text" rows="4" maxlength="120" placeholder="例如：把射灯调成暖色，展示客厅氛围" required></textarea>
+      <div style="margin-top:14px">
+        <button type="submit">发送愿望</button>
+      </div>
+      <div class="toast" id="toast"></div>
+    </form>
+    <p class="meta" style="margin-top:28px"><a href="./twin.html">返回孪生墙</a></p>
+  </div>
+  <script src="./common.js"></script>
+  <script>
+    const form = document.getElementById('form');
+    const toast = document.getElementById('toast');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = document.getElementById('text').value.trim();
+      if (!text) return;
+      toast.textContent = '提交中…';
+      try {
+        const r = await Showroom.api('/api/wish', {
+          method: 'POST',
+          body: JSON.stringify({ text }),
+        });
+        toast.textContent = r.ok
+          ? (r.scene ? '愿望已触发场景，请看大屏！' : '愿望已广播到大屏（未配置场景）')
+          : (r.error || '失败');
+        if (r.ok) form.reset();
+      } catch (err) {
+        toast.textContent = err.message;
+      }
+    });
+  </script>
+</body>
+</html>

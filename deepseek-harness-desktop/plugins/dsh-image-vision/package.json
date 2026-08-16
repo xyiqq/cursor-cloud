@@ -1,0 +1,23 @@
+{
+  "name": "dsh-image-vision",
+  "version": "1.4.3",
+  "private": true,
+  "type": "commonjs",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-api-remotes"
+      ]
+    }
+  },
+  "description": "DSH host plugin: give text-only models image understanding by describing images with a vision-capable model, with a settings page."
+}

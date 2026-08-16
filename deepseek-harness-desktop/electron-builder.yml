@@ -1,0 +1,64 @@
+appId: com.deepseek.harness.desktop
+productName: DeepSeek Harness
+copyright: Copyright © DeepSeek Harness Desktop Contributors
+
+directories:
+  output: dist
+  buildResources: build
+
+# Mirror ningbainb/deepseek-harness-desktop: keep native modules on disk.
+asar: true
+asarUnpack:
+  - node_modules/**
+  - plugins/**
+
+files:
+  - electron/**/*
+  - plugins/**/*
+  - package.json
+  - node_modules/**/*
+  - "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}"
+  - "!**/*.{md,map}"
+  # Re-include plugin skill packs (excluded by the *.md rule above).
+  - plugins/*/skills/**/*
+  - "!**/test/**"
+
+npmRebuild: false
+
+win:
+  target:
+    - target: zip
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+  requestedExecutionLevel: asInvoker
+
+portable:
+  artifactName: ${productName}-${version}-portable.${ext}
+  unpackDirName: dsh-desktop
+
+mac:
+  target:
+    - target: zip
+      arch:
+        - arm64
+        - x64
+  category: public.app-category.developer-tools
+  # Unsigned ZIP for GitHub Releases (cross-build from Linux CI).
+  identity: null
+  artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+  hardenedRuntime: false
+  gatekeeperAssess: false
+
+linux:
+  target:
+    - AppImage
+  category: Development
+
+publish:
+  provider: github
+  owner: xyiqq
+  repo: cursor-cloud

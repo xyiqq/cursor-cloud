@@ -1,0 +1,2 @@
+Bundled showroom plugin for DeepSeek Harness Desktop.
+Voice/ASR is intentionally out of scope (see docs/showroom-roadmap.md).

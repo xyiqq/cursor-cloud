@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>展厅控制台</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Show Mode 控制台</h1>
+    <div class="nav">
+      <a href="./twin.html">孪生墙</a>
+      <a href="./viz.html">工具条</a>
+      <a href="./wish.html">许愿</a>
+    </div>
+  </header>
+  <div class="panel-wrap">
+    <div class="card">
+      <h2>四场景切换</h2>
+      <p class="meta" id="modeHint">加载场景配置…</p>
+      <div class="row" style="margin-top:12px">
+        <button type="button" data-mode="welcome">迎宾 welcome</button>
+        <button type="button" data-mode="present">讲解 present</button>
+        <button type="button" data-mode="demo">演示 demo</button>
+        <button type="button" data-mode="exit" class="secondary">离场 exit</button>
+      </div>
+      <div class="toast" id="toast"></div>
+    </div>
+    <div class="card">
+      <h2>说明</h2>
+      <p class="meta">按钮调用 Hub → HA scene。角色切换请在对话中执行 showroom_set_role。语音 ASR 不在本页。</p>
+    </div>
+  </div>
+  <script src="./common.js"></script>
+  <script>
+    const toast = document.getElementById('toast');
+    Showroom.api('/api/config').then((cfg) => {
+      const m = cfg.modes || {};
+      document.getElementById('modeHint').textContent =
+        `welcome=${m.welcome || '未配'} · present=${m.present || '未配'} · demo=${m.demo || '未配'} · exit=${m.exit || '未配'}`;
+    }).catch((e) => { document.getElementById('modeHint').textContent = e.message; });
+
+    document.querySelectorAll('[data-mode]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        toast.textContent = '切换中…';
+        try {
+          const r = await Showroom.api('/api/mode', {
+            method: 'POST',
+            body: JSON.stringify({ mode: btn.dataset.mode }),
+          });
+          toast.textContent = r.ok ? `已切换 ${r.mode || btn.dataset.mode}` : (r.error || '失败');
+        } catch (err) {
+          toast.textContent = err.message;
+        }
+      });
+    });
+  </script>
+</body>
+</html>
