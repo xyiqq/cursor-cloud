@@ -666,15 +666,12 @@ const en = {
 
 		/** Dictionary namespace owned by this plugin. */
 		const NS = "liang";
-		/** Required services: locale, the slot registry, sessions, and the shared model directory. */
-		const inject = ["locale", "slots", "sessions", "modelDirectories"];
+		const SETTINGS_NS = "dsh-liang-calibrator";
+		/** Required services: locale, slots, sessions, model directory, settings API. */
+		const inject = ["locale", "slots", "sessions", "modelDirectories", "connection", "remote"];
 		/**
-		* Client plugin body: register the dictionaries, then shadow the built-in
-		* `conversation.input.model` seat with the liang calibrator. The shadow
-		* wins by priority: the slot renders the LOWEST priority registration,
-		* and the built-in registers at the default 0, so -1 replaces it while
-		* the original registration stays intact (dispose my plugin to restore
-		* the stock selector).
+		* Client plugin body: settings section always available; model seat is only
+		* shadowed while enabled (stock selector returns when turned off).
 		* @param ctx - client root context.
 		*/
 		function apply(ctx) {
@@ -682,27 +679,178 @@ const en = {
 				zh,
 				en
 			}), "liang-calibrator: dictionaries");
+
+			const api = ctx.connection.api;
+
+			function SettingsSection() {
+				const [meta, setMeta] = react.useState(null);
+				const [draft, setDraft] = react.useState(null);
+				const [busy, setBusy] = react.useState(false);
+				const [saved, setSaved] = react.useState(false);
+				const [missing, setMissing] = react.useState(false);
+
+				const load = react.useCallback(() => {
+					api.settings.describe({}).then((sRes) => {
+						const view = sRes.result.ok
+							? (sRes.result.value.namespaces || []).find((n) => n.ns === SETTINGS_NS)
+							: undefined;
+						if (!view) {
+							setMissing(true);
+							return;
+						}
+						const value = view.value || {};
+						setMeta({
+							revision: view.revision,
+							writable: sRes.result.value.writable !== false
+						});
+						setDraft({
+							enabled: value.enabled !== false
+						});
+						setMissing(false);
+					}).catch(() => {
+						setMissing(true);
+					});
+				}, []);
+
+				react.useEffect(() => {
+					load();
+					const off = ctx.remote.$on("settings/document-updated", (ns) => {
+						if (ns === SETTINGS_NS) load();
+					});
+					return off;
+				}, [load]);
+
+				async function save() {
+					if (!draft || !meta) return;
+					setBusy(true);
+					setSaved(false);
+					try {
+						const res = await api.settings.mutate({
+							ns: SETTINGS_NS,
+							ops: [{
+								op: "set",
+								path: ["enabled"],
+								value: !!draft.enabled
+							}],
+							expectedRevision: meta.revision
+						});
+						if (res.result.ok) {
+							setMeta((m) => m ? Object.assign({}, m, { revision: res.result.value.revision }) : m);
+							setSaved(true);
+							load();
+						}
+					} finally {
+						setBusy(false);
+					}
+				}
+
+				if (missing) {
+					return react.createElement("div", null, "未找到滑动变祖器设置。请升级到最新桌面端，或检查 apiproxy 白名单是否含 dsh-liang-calibrator。");
+				}
+				if (!draft || !meta) {
+					return react.createElement("div", { style: { opacity: 0.6 } }, "加载中…");
+				}
+
+				const rowStyle = { display: "flex", alignItems: "center", gap: 10, marginBottom: 14 };
+				const btnStyle = {
+					boxSizing: "border-box",
+					height: 36,
+					font: "inherit",
+					cursor: busy ? "default" : "pointer",
+					border: "none",
+					borderRadius: 18,
+					padding: "0 14px",
+					fontSize: 14,
+					background: "var(--dsw-alias-button-primary-fill)",
+					color: "var(--dsw-alias-label-primary-foreground)",
+					opacity: busy ? 0.6 : 1
+				};
+
+				return react.createElement("div", null,
+					react.createElement("div", { style: { fontSize: 13, lineHeight: 1.55, opacity: 0.75, marginBottom: 16 } },
+						"开启后，输入框旁的模型位使用滑动校准器（先选模型，再滑思考强度）。关闭后恢复官方默认模型选择器，一般无需重启。"
+					),
+					react.createElement("label", { style: rowStyle },
+						react.createElement("input", {
+							type: "checkbox",
+							checked: !!draft.enabled,
+							onChange: (e) => setDraft({ enabled: e.target.checked })
+						}),
+						react.createElement("span", null, "启用滑动变祖器")
+					),
+					react.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" } },
+						react.createElement("button", {
+							type: "button",
+							onClick: save,
+							disabled: busy || !meta.writable,
+							style: btnStyle
+						}, busy ? "保存中…" : "保存"),
+						saved ? react.createElement("span", { style: { fontSize: 12, color: "var(--dsw-alias-state-success-primary)" } }, "已保存") : null
+					)
+				);
+			}
+
+			ctx.slots.inject("settings.section", () => ctx.slots.register({
+				name: "settings.section",
+				id: "liang-calibrator",
+				order: 34,
+				label: "滑动变祖器"
+			}, SettingsSection));
+
 			ctx.inject(["slots", "modelDirectories"], (scope) => {
 				const models = scope.modelDirectories;
 				const sessions = scope.sessions;
-				scope.slots.inject("conversation.input.model", () => scope.slots.register({
-					name: "conversation.input.model",
-					locale: NS,
-					priority: -1,
-					registrant: "liang-calibrator",
-					inject: (sessionId) => {
-						const directory = models.directoryFor(sessionId);
-						const available = sessions.subagentAddress(sessionId) === void 0;
-						return {
-							available,
-							directory: directory.store,
-							load: () => {
-								if (available) directory.load().catch(() => {});
-							},
-							select: (selection) => available ? directory.select(selection).then(() => true, () => false) : Promise.resolve(false)
-						};
+				let disposeModel = null;
+
+				const syncModelSeat = (enabled) => {
+					if (disposeModel) {
+						disposeModel();
+						disposeModel = null;
 					}
-				}, LiangModelSelect));
+					if (!enabled) return;
+					disposeModel = scope.slots.inject("conversation.input.model", () => scope.slots.register({
+						name: "conversation.input.model",
+						locale: NS,
+						priority: -1,
+						registrant: "liang-calibrator",
+						inject: (sessionId) => {
+							const directory = models.directoryFor(sessionId);
+							const available = sessions.subagentAddress(sessionId) === void 0;
+							return {
+								available,
+								directory: directory.store,
+								load: () => {
+									if (available) directory.load().catch(() => {});
+								},
+								select: (selection) => available ? directory.select(selection).then(() => true, () => false) : Promise.resolve(false)
+							};
+						}
+					}, LiangModelSelect));
+				};
+
+				const readEnabled = () => api.settings.describe({}).then((sRes) => {
+					if (!sRes.result.ok) return true;
+					const view = (sRes.result.value.namespaces || []).find((n) => n.ns === SETTINGS_NS);
+					if (!view) return true;
+					return view.value?.enabled !== false;
+				}).catch(() => true);
+
+				readEnabled().then(syncModelSeat);
+				const off = ctx.remote.$on("settings/document-updated", (ns) => {
+					if (ns !== SETTINGS_NS) return;
+					readEnabled().then(syncModelSeat);
+				});
+				return () => {
+					try {
+						off?.();
+					} catch {
+						/* ignore */
+					}
+					if (disposeModel) {
+						disposeModel();
+						disposeModel = null;
+					}
+				};
 			});
 		}
 		exports.name = "liang-calibrator";

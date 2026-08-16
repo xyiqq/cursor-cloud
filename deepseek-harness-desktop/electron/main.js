@@ -390,8 +390,8 @@ function openShowroomPage(page) {
 }
 
 /**
- * Toggle the bundled Liang Saint Slider (rewrites cordis.patch.yml).
- * Requires a full app restart for cordis to load/unload the plugin.
+ * Sync desktop-liang-calibrator.json and remind the user that in-app Settings
+ * is the primary toggle (instant, no restart).
  * @param {boolean} enabled
  */
 async function setLiangCalibratorEnabled(enabled) {
@@ -408,22 +408,13 @@ async function setLiangCalibratorEnabled(enabled) {
     return;
   }
   buildMenu();
-  const { response } = await dialog.showMessageBox({
+  await dialog.showMessageBox({
     type: 'info',
-    buttons: ['立即重启', '稍后手动重启'],
-    defaultId: 0,
-    cancelId: 1,
-    message: enabled ? '已开启滑动变祖器' : '已关闭滑动变祖器',
-    detail: enabled
-      ? '重启后，输入框旁的模型位会使用滑动校准器。'
-      : '重启后，将恢复官方默认模型选择器。',
+    buttons: ['知道了'],
+    message: enabled ? '已记录：开启滑动变祖器' : '已记录：关闭滑动变祖器',
+    detail:
+      '推荐在应用内「设置 → 滑动变祖器」开关（保存后即时生效，一般不用重启）。\n菜单勾选会写入状态文件，并在下次启动时作为默认值。',
   });
-  if (response === 0) {
-    shuttingDown = true;
-    killDshTree();
-    app.relaunch();
-    app.quit();
-  }
 }
 
 function buildMenu() {
@@ -503,7 +494,26 @@ function buildMenu() {
         label: '插件',
         submenu: [
           {
-            label: '滑动变祖器',
+            label: '滑动变祖器（设置里开关）…',
+            click: async () => {
+              const { dshHome } = userDataPaths();
+              const enabled = readLiangCalibratorState(dshHome).enabled;
+              await dialog.showMessageBox({
+                type: 'info',
+                title: '滑动变祖器',
+                message: '开关位置：设置 → 滑动变祖器',
+                detail: [
+                  '请打开应用左侧「设置」，在设置列表中找到「滑动变祖器」。',
+                  `当前状态文件默认：${enabled ? '开启' : '关闭'}`,
+                  '',
+                  '在设置页勾选「启用滑动变祖器」并保存即可即时生效。',
+                ].join('\n'),
+                buttons: ['知道了'],
+              });
+            },
+          },
+          {
+            label: '滑动变祖器（菜单快捷）',
             type: 'checkbox',
             checked: liangEnabled,
             click: (menuItem) => {

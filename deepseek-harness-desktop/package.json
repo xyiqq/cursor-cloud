@@ -1,6 +1,6 @@
 {
   "name": "deepseek-harness-desktop",
-  "version": "0.4.7",
+  "version": "0.4.8",
   "private": true,
   "description": "DeepSeek Harness desktop client (Electron + official dsh) for Windows and macOS",
   "main": "electron/main.js",

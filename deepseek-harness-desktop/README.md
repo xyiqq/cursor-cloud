@@ -10,21 +10,21 @@
 - **滑动变祖器**（[Liang-Saint-Slider](https://github.com/BruzWJ/Liang-Saint-Slider)：先选模型，滑条只调思考强度；菜单 **插件 → 滑动变祖器** 可开关）
 - **ZIP OTA**：启动自动检测 GitHub Releases 新版本并下载安装
 
-## 下载（v0.4.7）
+## 下载（v0.4.8）
 
-https://github.com/xyiqq/cursor-cloud/releases/tag/v0.4.7
+https://github.com/xyiqq/cursor-cloud/releases/tag/v0.4.8
 
-- **Windows x64 ZIP：** https://github.com/xyiqq/cursor-cloud/releases/download/v0.4.7/DeepSeek-Harness-0.4.7-win-x64.zip
-- **macOS Apple Silicon (arm64)：** https://github.com/xyiqq/cursor-cloud/releases/download/v0.4.7/DeepSeek-Harness-0.4.7-mac-arm64.zip
-- **macOS Intel (x64)：** https://github.com/xyiqq/cursor-cloud/releases/download/v0.4.7/DeepSeek-Harness-0.4.7-mac-x64.zip
+- **Windows x64 ZIP：** https://github.com/xyiqq/cursor-cloud/releases/download/v0.4.8/DeepSeek-Harness-0.4.8-win-x64.zip
+- **macOS Apple Silicon (arm64)：** https://github.com/xyiqq/cursor-cloud/releases/download/v0.4.8/DeepSeek-Harness-0.4.8-mac-arm64.zip
+- **macOS Intel (x64)：** https://github.com/xyiqq/cursor-cloud/releases/download/v0.4.8/DeepSeek-Harness-0.4.8-mac-x64.zip
 
 1. 解压到短路径（Windows 如 `C:\dsh-desktop\`；macOS 可将 `.app` 拖到「应用程序」）
 2. 运行 `DeepSeek Harness`（macOS 未签名时需在「系统设置 → 隐私与安全性」允许打开）
 3. 之后版本更新由客户端自动检测（菜单也可「检查更新」）
 
-内置含 **滑动变祖器**（默认开启）：点输入框旁模型位 → **模型**行选模型 → 滑条只调当前模型思考强度。可在菜单 **插件 → 滑动变祖器** 关闭，重启后恢复官方默认模型选择器。
+内置含 **滑动变祖器**（默认开启）：点输入框旁模型位 → **模型**行选模型 → 滑条只调当前模型思考强度。开关在应用内 **设置 → 滑动变祖器**（保存后即时生效）。
 
-> **说明：** 若仍在用 v0.4.6 并看到 GitHub API `403 rate limit`，请手动安装 **v0.4.7**（检查更新改为走网页跳转，不再依赖 `api.github.com` 配额）。窗口标题 / 启动页 / **关于** 菜单可查看版本号。
+> **小版本测试 v0.4.8：** 把滑动变祖器开关做到设置页列表里；并保留顶部菜单「插件」提示入口。
 
 ## Home Assistant
 

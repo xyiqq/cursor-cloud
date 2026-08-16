@@ -433,7 +433,7 @@ function buildCordisPatchYaml(dshHome) {
   const parts = [
     `# Managed by DeepSeek Harness Desktop — bundled plugins.
 # Local extras: edit $DSH_HOME/desktop-extra-plugins.json (do not hand-edit this file).
-# Bundled Liang slider: $DSH_HOME/desktop-liang-calibrator.json (menu: 插件 → 滑动变祖器).
+# Bundled Liang slider toggle: Settings → 滑动变祖器 (also $DSH_HOME/desktop-liang-calibrator.json).
 - insert:
     - id: image-vision
       name: dsh-image-vision
@@ -448,18 +448,15 @@ function buildCordisPatchYaml(dshHome) {
       name: dsh-showroom
       config:
         enabled: true
+    - id: liang-calibrator
+      name: dsh-plugin-liang-calibrator
+      config:
+        enabled: ${liangEnabled ? 'true' : 'false'}
 `,
   ];
 
-  if (liangEnabled) {
-    parts.push(`    - id: liang-calibrator
-      name: dsh-plugin-liang-calibrator
-`);
-  }
-
   for (const plugin of readExtraPlugins(dshHome)) {
-    // Avoid double-insert when the bundled toggle already owns this id.
-    if (liangEnabled && plugin.id === 'liang-calibrator') continue;
+    if (plugin.id === 'liang-calibrator') continue;
     parts.push(`    - id: ${plugin.id}
       name: ${JSON.stringify(plugin.name)}
 ${formatCordisConfig(plugin.config)}`);

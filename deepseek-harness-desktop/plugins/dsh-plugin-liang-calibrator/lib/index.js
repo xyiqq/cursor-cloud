@@ -1,19 +1,28 @@
 /**
  * dsh-plugin-liang-calibrator — host half.
  *
- * Pure service half: serves the portrait keyframes (frame-00..frame-30.webp)
- * under `/liang-assets/` so the browser half never needs a CDN or a patched
- * static server. The UI itself lives in `./client` (see package.json
- * `dsh.client`).
+ * Serves portrait keyframes under `/liang-assets/` and registers a settings
+ * namespace so the desktop Settings sidebar can enable/disable the calibrator.
+ * UI lives in `./client` (see package.json `dsh.client`).
  */
 import { readFile } from "node:fs/promises";
 import { dirname, extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import fs from "node:fs";
+import os from "node:os";
+import z from "@deepseek-ai/schemastery";
 
 /** Stable Cordis plugin name. */
 const name = "liang-calibrator";
-/** Services required before the asset route can be mounted. */
-const inject = ["webServer"];
+/** Services required before the asset route / settings can be mounted. */
+const inject = ["webServer", "settings"];
+
+const SETTINGS_NS = "dsh-liang-calibrator";
+const LIANG_STATE_FILE = "desktop-liang-calibrator.json";
+
+const configSchema = z.object({
+  enabled: z.boolean().default(true),
+});
 
 const MIME = {
   ".webp": "image/webp",
@@ -27,11 +36,68 @@ const MIME = {
 /** The asset root this file owns: `<package>/lib/assets`. */
 const assetsRoot = resolve(dirname(fileURLToPath(import.meta.url)), "assets");
 
+function dshHomeDir() {
+  return process.env.DSH_HOME || join(os.homedir(), ".dsh");
+}
+
+function writeLiangState(cfg) {
+  const home = dshHomeDir();
+  fs.mkdirSync(home, { recursive: true });
+  const file = join(home, LIANG_STATE_FILE);
+  const payload = {
+    enabled: cfg?.enabled !== false,
+    updatedAt: new Date().toISOString(),
+  };
+  fs.writeFileSync(file, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  return payload;
+}
+
 /**
- * Mount the asset route on the profile's web server.
- * @param ctx - host plugin context carrying the `webServer` service.
+ * Mount the asset route and settings namespace.
+ * @param ctx - host plugin context
+ * @param config - cordis insert config (seeds settings defaults)
  */
-function apply(ctx) {
+function apply(ctx, config = {}) {
+  const settings = ctx.settings;
+  if (settings) {
+    try {
+      settings.register(SETTINGS_NS, configSchema);
+    } catch (err) {
+      console.error("[liang-calibrator] settings register failed:", err);
+    }
+  }
+
+  function currentConfig() {
+    if (settings) {
+      try {
+        const value = settings.get(SETTINGS_NS);
+        if (value !== undefined) return value;
+      } catch {
+        /* ignore */
+      }
+    }
+    return { enabled: config.enabled !== false };
+  }
+
+  let cfg = currentConfig();
+  try {
+    writeLiangState(cfg);
+  } catch (err) {
+    console.warn("[liang-calibrator] write state failed:", err?.message || err);
+  }
+
+  if (settings) {
+    ctx.on("settings/updated", (ns) => {
+      if (ns !== SETTINGS_NS) return;
+      cfg = currentConfig();
+      try {
+        writeLiangState(cfg);
+      } catch (err) {
+        console.warn("[liang-calibrator] write state failed:", err?.message || err);
+      }
+    });
+  }
+
   ctx.webServer.register({
     kind: "prefix",
     path: "/liang-assets",
@@ -71,4 +137,4 @@ function apply(ctx) {
   });
 }
 
-export { apply, inject, name };
+export { apply, inject, name, SETTINGS_NS, configSchema };

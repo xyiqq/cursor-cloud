@@ -113,12 +113,12 @@ try {
 }
 if (!existsSync(apiproxy)) fail('dsh-host-apiproxy missing');
 const apiSrc = readFileSync(apiproxy, 'utf8');
-for (const ns of ['dsh-image-vision', 'dsh-homeassistant', 'dsh-showroom']) {
+for (const ns of ['dsh-image-vision', 'dsh-homeassistant', 'dsh-showroom', 'dsh-liang-calibrator']) {
   if (!apiSrc.includes(`"${ns}"`) && !apiSrc.includes(`'${ns}'`)) {
     fail(`apiproxy allowlist missing ${ns} (run patch:apiproxy)`);
   }
 }
-ok('apiproxy allowlist exposes image-vision + homeassistant + showroom');
+ok('apiproxy allowlist exposes image-vision + homeassistant + showroom + liang');
 
 // OTA helper unit checks (no network)
 const { cmpVersion, pickZipAsset, pickNewestRelease, tagFromLatestLocation, buildDesktopRelease } = require(join(root, 'electron', 'update-utils.js'));
