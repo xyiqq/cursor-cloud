@@ -10,13 +10,13 @@
 - **滑动变祖器**（[Liang-Saint-Slider](https://github.com/BruzWJ/Liang-Saint-Slider)：先选模型，滑条只调思考强度；菜单 **插件 → 滑动变祖器** 可开关）
 - **ZIP OTA**：启动自动检测 GitHub Releases 新版本并下载安装
 
-## 下载（v0.4.4）
+## 下载（v0.4.5）
 
-https://github.com/xyiqq/cursor-cloud/releases/tag/v0.4.4
+https://github.com/xyiqq/cursor-cloud/releases/tag/v0.4.5
 
-- **Windows x64 ZIP：** https://github.com/xyiqq/cursor-cloud/releases/download/v0.4.4/DeepSeek-Harness-0.4.4-win-x64.zip
-- **macOS Apple Silicon (arm64)：** https://github.com/xyiqq/cursor-cloud/releases/download/v0.4.4/DeepSeek-Harness-0.4.4-mac-arm64.zip
-- **macOS Intel (x64)：** https://github.com/xyiqq/cursor-cloud/releases/download/v0.4.4/DeepSeek-Harness-0.4.4-mac-x64.zip
+- **Windows x64 ZIP：** https://github.com/xyiqq/cursor-cloud/releases/download/v0.4.5/DeepSeek-Harness-0.4.5-win-x64.zip
+- **macOS Apple Silicon (arm64)：** https://github.com/xyiqq/cursor-cloud/releases/download/v0.4.5/DeepSeek-Harness-0.4.5-mac-arm64.zip
+- **macOS Intel (x64)：** https://github.com/xyiqq/cursor-cloud/releases/download/v0.4.5/DeepSeek-Harness-0.4.5-mac-x64.zip
 
 1. 解压到短路径（Windows 如 `C:\dsh-desktop\`；macOS 可将 `.app` 拖到「应用程序」）
 2. 运行 `DeepSeek Harness`（macOS 未签名时需在「系统设置 → 隐私与安全性」允许打开）
