@@ -42,9 +42,19 @@
         font-size: 22px;
         font-weight: 650;
         letter-spacing: 0.02em;
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        flex-wrap: wrap;
       }
       .brand span {
         color: var(--accent);
+      }
+      .ver {
+        font-size: 13px;
+        font-weight: 560;
+        color: var(--muted);
+        letter-spacing: 0.04em;
       }
       .msg {
         font-size: 14px;
@@ -93,7 +103,7 @@
   </head>
   <body>
     <div class="wrap">
-      <div class="brand">DeepSeek <span>Harness</span></div>
+      <div class="brand">DeepSeek <span>Harness</span><span id="ver" class="ver"></span></div>
       <div id="msg" class="msg">正在启动 DeepSeek Harness…</div>
       <div id="bar" class="bar"><i></i></div>
       <div class="hint">仅监听 127.0.0.1 · 打开即用桌面客户端</div>
@@ -101,9 +111,20 @@
     <script>
       const msg = document.getElementById('msg');
       const bar = document.getElementById('bar');
+      const ver = document.getElementById('ver');
+      const setVersion = (value) => {
+        if (!value) return;
+        ver.textContent = String(value).startsWith('v') ? String(value) : `v${value}`;
+      };
+      if (window.desktopBridge?.getStatus) {
+        window.desktopBridge.getStatus().then((status) => {
+          if (status?.version) setVersion(status.version);
+        }).catch(() => {});
+      }
       if (window.desktopBridge && window.desktopBridge.onSplashStatus) {
         window.desktopBridge.onSplashStatus((payload) => {
           if (!payload) return;
+          if (payload.version) setVersion(payload.version);
           msg.textContent = payload.message || '';
           if (payload.phase === 'error') {
             msg.classList.add('error');

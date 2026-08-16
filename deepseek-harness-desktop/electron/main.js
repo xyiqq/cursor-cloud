@@ -277,6 +277,13 @@ function createSplash() {
     },
   });
   splashWindow.loadFile(path.join(__dirname, 'splash.html'));
+  splashWindow.webContents.once('did-finish-load', () => {
+    sendSplash({
+      phase: 'starting',
+      message: '正在启动 DeepSeek Harness…',
+      version: app.getVersion(),
+    });
+  });
   splashWindow.on('closed', () => {
     splashWindow = null;
   });
@@ -284,8 +291,44 @@ function createSplash() {
 
 function sendSplash(payload) {
   if (splashWindow && !splashWindow.isDestroyed()) {
-    splashWindow.webContents.send('splash:status', payload);
+    splashWindow.webContents.send('splash:status', {
+      version: app.getVersion(),
+      ...payload,
+    });
   }
+}
+
+function appTitle(pageTitle) {
+  const ver = app.getVersion();
+  const base = `DeepSeek Harness v${ver}`;
+  if (!pageTitle || pageTitle === 'DeepSeek Harness' || pageTitle === base) return base;
+  return `${base} — ${pageTitle}`;
+}
+
+function showAboutDialog() {
+  const ver = app.getVersion();
+  return dialog.showMessageBox({
+    type: 'info',
+    title: '关于 DeepSeek Harness',
+    message: 'DeepSeek Harness Desktop',
+    detail: [
+      `客户端版本：v${ver}`,
+      `Electron：${process.versions.electron}`,
+      `Chrome：${process.versions.chrome}`,
+      `Node：${process.versions.node}`,
+      `平台：${process.platform} / ${process.arch}`,
+      '',
+      '菜单「DeepSeek Harness → 检查更新」可检测新版本。',
+      '发布页：https://github.com/xyiqq/cursor-cloud/releases',
+    ].join('\n'),
+    buttons: ['打开发布页', '关闭'],
+    defaultId: 1,
+    cancelId: 1,
+  }).then(({ response }) => {
+    if (response === 0) {
+      shell.openExternal('https://github.com/xyiqq/cursor-cloud/releases');
+    }
+  });
 }
 
 function createMainWindow(url) {
@@ -295,7 +338,7 @@ function createMainWindow(url) {
     minWidth: 900,
     minHeight: 600,
     show: false,
-    title: 'DeepSeek Harness',
+    title: appTitle(),
     backgroundColor: '#0b1220',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -307,6 +350,12 @@ function createMainWindow(url) {
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
     if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close();
+  });
+  mainWindow.on('page-title-updated', (event, title) => {
+    event.preventDefault();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.setTitle(appTitle(title));
+    }
   });
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -380,22 +429,70 @@ async function setLiangCalibratorEnabled(enabled) {
 function buildMenu() {
   const { dshHome } = userDataPaths();
   const liangEnabled = readLiangCalibratorState(dshHome).enabled;
+  const versionLabel = `v${app.getVersion()}`;
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
       {
         label: 'DeepSeek Harness',
         submenu: [
           {
+            label: `关于 DeepSeek Harness（${versionLabel}）`,
+            click: () => {
+              void showAboutDialog();
+            },
+          },
+          {
+            label: `当前版本 ${versionLabel}`,
+            enabled: false,
+          },
+          { type: 'separator' },
+          {
             label: '检查更新',
             click: async () => {
               if (!updaterApi) return;
               const result = await updaterApi.check();
               if (result.reason === 'dev-mode') {
-                dialog.showMessageBox({
+                await dialog.showMessageBox({
                   type: 'info',
                   message: '开发模式未启用 OTA。',
+                  detail: `当前版本 ${versionLabel}`,
+                });
+                return;
+              }
+              if (result.reason === 'busy') {
+                await dialog.showMessageBox({
+                  type: 'info',
+                  message: '正在检查或下载更新，请稍候。',
+                });
+                return;
+              }
+              if (!result.ok) {
+                const { response } = await dialog.showMessageBox({
+                  type: 'error',
+                  title: '检查更新失败',
+                  message: '检查更新失败',
+                  detail: `当前版本 ${versionLabel}\n\n${result.error || '未知错误'}\n\n若无法访问 GitHub，请手动下载：\nhttps://github.com/xyiqq/cursor-cloud/releases`,
+                  buttons: ['打开下载页', '关闭'],
+                  defaultId: 0,
+                  cancelId: 1,
+                });
+                if (response === 0) {
+                  shell.openExternal(
+                    result.releasesUrl || 'https://github.com/xyiqq/cursor-cloud/releases',
+                  );
+                }
+                return;
+              }
+              if (result.cancelled) return;
+              if (!result.update) {
+                await dialog.showMessageBox({
+                  type: 'info',
+                  title: '已是最新版本',
+                  message: '当前已是最新版本',
+                  detail: `本地 ${result.localVersion}${result.remoteVersion ? ` / 远程 ${result.remoteVersion}` : ''}`,
                 });
               }
+              // update === true: updater already showed download / install dialogs
             },
           },
           { type: 'separator' },
@@ -446,6 +543,13 @@ function buildMenu() {
       {
         label: '帮助',
         submenu: [
+          {
+            label: `关于（${versionLabel}）`,
+            click: () => {
+              void showAboutDialog();
+            },
+          },
+          { type: 'separator' },
           {
             label: '打开日志目录',
             click: () => shell.openPath(userDataPaths().logs),

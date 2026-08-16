@@ -15,10 +15,11 @@ const https = require('node:https');
 const http = require('node:http');
 const { spawn } = require('node:child_process');
 const { dialog, BrowserWindow, app: electronApp } = require('electron');
-const { cmpVersion, parseVersion, pickZipAsset } = require('./update-utils');
+const { cmpVersion, pickZipAsset, pickNewestRelease } = require('./update-utils');
 
 const OWNER = () => process.env.GH_PUBLISH_OWNER || process.env.DSH_DESKTOP_GH_OWNER || 'xyiqq';
 const REPO = () => process.env.GH_PUBLISH_REPO || process.env.DSH_DESKTOP_GH_REPO || 'cursor-cloud';
+const RELEASES_PAGE = () => `https://github.com/${OWNER()}/${REPO()}/releases`;
 
 function broadcast(channel, payload) {
   for (const win of BrowserWindow.getAllWindows()) {
@@ -34,6 +35,7 @@ function httpGetJson(url, headers = {}) {
       {
         headers: {
           Accept: 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
           'User-Agent': 'DeepSeek-Harness-Desktop-OTA',
           ...headers,
         },
@@ -67,6 +69,21 @@ function httpGetJson(url, headers = {}) {
       reject(new Error('request timeout'));
     });
   });
+}
+
+async function fetchNewestRelease() {
+  const base = `https://api.github.com/repos/${OWNER()}/${REPO()}`;
+  try {
+    const latest = await httpGetJson(`${base}/releases/latest`);
+    if (latest && !latest.draft && pickZipAsset(latest)) return latest;
+  } catch (err) {
+    // Fall through to the list endpoint (rate limits / empty latest / network blips).
+    console.warn('[updater] releases/latest failed, trying list:', err?.message || err);
+  }
+  const list = await httpGetJson(`${base}/releases?per_page=20`);
+  const picked = pickNewestRelease(list);
+  if (!picked) throw new Error('GitHub Releases 中未找到可用的桌面 ZIP');
+  return picked;
 }
 
 function downloadFile(url, dest, onProgress) {
@@ -184,6 +201,13 @@ exit /b 0
   return scriptPath;
 }
 
+function formatBytes(n) {
+  const num = Number(n) || 0;
+  if (num < 1024) return `${num} B`;
+  if (num < 1024 * 1024) return `${(num / 1024).toFixed(1)} KB`;
+  return `${(num / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 /**
  * @param {import('electron').App} app
  * @param {{ logger?: Console }} [opts]
@@ -206,17 +230,19 @@ function initUpdater(app, opts = {}) {
   const updatesRoot = path.join(app.getPath('userData'), 'updates');
   fs.mkdirSync(updatesRoot, { recursive: true });
 
-  async function check({ download = true } = {}) {
+  async function check({ download = true, interactive = true } = {}) {
     if (checking) return { ok: false, reason: 'busy' };
     checking = true;
     broadcast('update:status', { state: 'checking' });
     try {
-      const release = await httpGetJson(
-        `https://api.github.com/repos/${OWNER()}/${REPO()}/releases/latest`,
-      );
+      const release = await fetchNewestRelease();
       const remoteVersion = String(release.tag_name || release.name || '').replace(/^v/i, '');
       const localVersion = app.getVersion();
-      if (!remoteVersion || cmpVersion(localVersion, remoteVersion) >= 0) {
+      const cmp = cmpVersion(localVersion, remoteVersion);
+      if (!remoteVersion || cmp === null) {
+        throw new Error(`无法解析版本号（本地 ${localVersion} / 远程 ${remoteVersion || '未知'}）`);
+      }
+      if (cmp >= 0) {
         broadcast('update:status', { state: 'not-available', info: { version: localVersion } });
         return { ok: true, update: false, localVersion, remoteVersion };
       }
@@ -230,6 +256,23 @@ function initUpdater(app, opts = {}) {
       });
       if (!download) {
         return { ok: true, update: true, localVersion, remoteVersion, asset };
+      }
+
+      if (interactive) {
+        const win = BrowserWindow.getFocusedWindow();
+        const sizeHint = asset.size ? `约 ${formatBytes(asset.size)}` : '完整安装包';
+        const ask = await dialog.showMessageBox(win || undefined, {
+          type: 'info',
+          title: '发现新版本',
+          message: `发现新版本 ${remoteVersion}（当前 ${localVersion}）`,
+          detail: `将下载 ${asset.name}（${sizeHint}）。下载过程可能需要几分钟，请保持网络畅通。\n\n若 GitHub 访问较慢，也可手动打开：\n${RELEASES_PAGE()}`,
+          buttons: ['下载并安装', '取消'],
+          defaultId: 0,
+          cancelId: 1,
+        });
+        if (ask.response !== 0) {
+          return { ok: true, update: true, localVersion, remoteVersion, cancelled: true };
+        }
       }
 
       const zipPath = path.join(updatesRoot, asset.name);
@@ -246,8 +289,8 @@ function initUpdater(app, opts = {}) {
       const result = await dialog.showMessageBox(win || undefined, {
         type: 'info',
         title: '更新已就绪',
-        message: `发现新版本 ${remoteVersion}（当前 ${localVersion}）`,
-        detail: '点击「立即重启安装」将覆盖当前安装目录中的文件并重新启动。ZIP 分发暂不支持增量差量包，需下载完整安装包，但之后无需手动去网页下载。',
+        message: `新版本 ${remoteVersion} 已下载完成（当前 ${localVersion}）`,
+        detail: '点击「立即重启安装」将覆盖当前安装目录中的文件并重新启动。',
         buttons: ['立即重启安装', '稍后'],
         defaultId: 0,
         cancelId: 1,
@@ -258,8 +301,9 @@ function initUpdater(app, opts = {}) {
       return { ok: true, update: true, localVersion, remoteVersion, downloaded: true };
     } catch (err) {
       log.error('[updater] check failed', err);
-      broadcast('update:status', { state: 'error', message: String(err?.message || err) });
-      return { ok: false, error: String(err?.message || err) };
+      const message = String(err?.message || err);
+      broadcast('update:status', { state: 'error', message });
+      return { ok: false, error: message, releasesUrl: RELEASES_PAGE() };
     } finally {
       checking = false;
     }
@@ -295,12 +339,32 @@ function initUpdater(app, opts = {}) {
     return { ok: true, manual: true, stagedDir: pending.stagedDir };
   }
 
+  // Background check: do not auto-download (avoids silent multi-minute hangs).
   setTimeout(() => {
-    check({ download: true }).catch((err) => log.warn('[updater] initial check failed', err));
+    check({ download: false, interactive: false })
+      .then((result) => {
+        if (!result?.ok || !result.update) return;
+        const win = BrowserWindow.getFocusedWindow();
+        dialog
+          .showMessageBox(win || undefined, {
+            type: 'info',
+            title: '发现新版本',
+            message: `发现新版本 ${result.remoteVersion}（当前 ${result.localVersion}）`,
+            detail: '可在菜单「DeepSeek Harness → 检查更新」下载安装。',
+            buttons: ['立即检查更新', '稍后'],
+            defaultId: 0,
+            cancelId: 1,
+          })
+          .then(({ response }) => {
+            if (response === 0) void check({ download: true, interactive: true });
+          })
+          .catch(() => {});
+      })
+      .catch((err) => log.warn('[updater] initial check failed', err));
   }, 8000);
 
   return {
-    check: async () => check({ download: true }),
+    check: async () => check({ download: true, interactive: true }),
     install: async () => installPending(),
     getPending: () => pending,
   };

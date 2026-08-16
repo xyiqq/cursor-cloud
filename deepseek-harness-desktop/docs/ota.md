@@ -1,21 +1,22 @@
 # OTA（ZIP 便携版自动更新）
 
-## 行为（v0.3.0+）
+## 行为（v0.4.6+）
 
 | 场景 | 行为 |
 |---|---|
-| 开发 / `!app.isPackaged` | no-op |
-| 已打包（ZIP 解压运行） | 启动约 8s 后检查 GitHub Releases `latest` |
-| 发现更高版本 | 自动下载 `DeepSeek-Harness-*-win-x64.zip`，解压到 `%APPDATA%\DeepSeek Harness\updates\` |
+| 开发 / `!app.isPackaged` | 弹窗提示开发模式未启用 OTA |
+| 已打包（ZIP 解压运行） | 启动约 8s 后检查 GitHub Releases；**仅提示有新版本**，不自动静默下载 |
+| 菜单「检查更新」 | 有新版本 → 先确认再下载；已是最新 / 失败都会弹窗说明 |
+| 发现更高版本并确认 | 下载 `DeepSeek-Harness-*-{win\|mac}-*.zip`，解压到 `%APPDATA%\DeepSeek Harness\updates\`（macOS 类似） |
 | 下载完成 | 对话框「立即重启安装 / 稍后」 |
-| 立即安装 | 写 `apply-update.cmd`，退出后 `robocopy` 覆盖安装目录并重启 |
-| 菜单 | 「DeepSeek Harness → 检查更新」手动触发 |
+| 立即安装 | Windows：写 `apply-update.cmd`，退出后 `robocopy` 覆盖安装目录并重启；macOS：提示手动替换 |
+| GitHub 不可达 | 错误弹窗 +「打开下载页」 |
 
 实现：`electron/updater.js`（GitHub Releases API + ZIP，不依赖 NSIS/`latest.yml`）。
 
 ## 说明
 
-- **不用每次去网页下包**：客户端会自己检测并下载。
+- **不用每次去网页下包**：客户端会自己检测并下载（需能访问 `api.github.com` / `github.com`）。
 - **仍是完整 ZIP**：便携版暂无差量 blockmap；体积与发版包相当，但流程全自动。
 - 发布时请上传命名规范资产：
   - Windows：`DeepSeek-Harness-<version>-win-x64.zip`
@@ -31,12 +32,12 @@
 
 ## 发布流程
 
-1. bump `package.json` version（如 `0.3.0`）
-2. `npm run dist:zip`
-3. 创建 GitHub Release，**tag = `v0.3.0`**
-4. 上传 `DeepSeek-Harness-0.3.0-win-x64.zip`
+1. bump `package.json` version（如 `0.4.6`）
+2. `npm run dist:all`（或 `dist:zip`）
+3. 创建 GitHub Release，**tag = `v0.4.6`**
+4. 上传连字符命名的 ZIP
 
-客户端下次启动对照 `releases/latest` 的 tag 与本地 `app.getVersion()`。
+客户端对照 Releases 中最新可用 tag 与本地 `app.getVersion()`。
 
 ## 未签名限制
 

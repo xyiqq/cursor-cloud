@@ -121,9 +121,11 @@ for (const ns of ['dsh-image-vision', 'dsh-homeassistant', 'dsh-showroom']) {
 ok('apiproxy allowlist exposes image-vision + homeassistant + showroom');
 
 // OTA helper unit checks (no network)
-const { cmpVersion, pickZipAsset } = require(join(root, 'electron', 'update-utils.js'));
+const { cmpVersion, pickZipAsset, pickNewestRelease } = require(join(root, 'electron', 'update-utils.js'));
 if (cmpVersion('0.2.1', '0.3.0') !== -1) fail('cmpVersion ordering');
 if (cmpVersion('0.3.0', '0.3.0') !== 0) fail('cmpVersion equal');
+if (cmpVersion('0.4.4', '0.4.5') !== -1) fail('cmpVersion 0.4.4 < 0.4.5');
+if (cmpVersion('0.44', '0.4.5') !== null) fail('cmpVersion invalid should be null');
 const asset = pickZipAsset({
   assets: [
     { name: 'notes.txt' },
@@ -142,6 +144,12 @@ const macAsset = pickZipAsset(
   { platform: 'darwin', arch: 'arm64' },
 );
 if (!macAsset || !/mac-arm64/.test(macAsset.name)) fail('pickZipAsset mac-arm64');
-ok('OTA helpers (cmpVersion/pickZipAsset win+mac)');
+const newest = pickNewestRelease([
+  { tag_name: 'v0.4.4', draft: false, prerelease: false, assets: [{ name: 'DeepSeek-Harness-0.4.4-win-x64.zip', browser_download_url: 'https://ex/a' }] },
+  { tag_name: 'v0.4.6', draft: false, prerelease: false, assets: [{ name: 'DeepSeek-Harness-0.4.6-win-x64.zip', browser_download_url: 'https://ex/b' }] },
+  { tag_name: 'v0.1.5', draft: false, prerelease: true, assets: [{ name: 'DeepSeek-Harness-0.1.5-win-x64.zip', browser_download_url: 'https://ex/c' }] },
+]);
+if (!newest || newest.tag_name !== 'v0.4.6') fail('pickNewestRelease');
+ok('OTA helpers (cmpVersion/pickZipAsset/pickNewestRelease)');
 
 console.log('[verify] all checks passed');
